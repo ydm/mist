@@ -4,6 +4,7 @@
   "description": "Playground in the mist",
   "main": "index.js",
   "scripts": {
+    "compile": "rm -rf artifacts typechain-types && hardhat compile",
     "test": ""
   },
   "repository": {

@@ -1,44 +1,78 @@
 package mist
 
-import (
-	"fmt"
-	"strings"
-	"unicode"
-)
+import "strconv"
 
-func Tokenize(code string) {
-	var (
-		token strings.Builder
-		tokens = make([]string, 0, 128)
-	)
+func parseAtom(tokens *TokenIterator) Node {
+	if !tokens.HasNext() {
+		panic("TODO")
+	}
 
-	push := func (x string) {
-		if token.Len() > 0 {
-			tokens = append(tokens, token.String())
-			token.Reset()
-		}
+	if next := tokens.Peek(); next == "(" || next == ")" {
+		panic("TODO")
+	}
 
-		if len(x) > 0 {
-			tokens = append(tokens, x)
+	next := tokens.Next() // Consume
+
+	parsed, err := strconv.ParseUint(next, 10, 64)
+	if err == nil {
+		return NewNodeUint256(parsed)
+	}
+
+	return NewNodeSymbol(next)
+}
+
+func parseList(tokens *TokenIterator) Node {
+	if tokens.Peek() != "(" {
+		panic("TODO")
+	}
+
+	// Consume (.
+	tokens.Next()
+
+	// Prepare stack.
+	root := NewNodeList()
+
+	for tokens.HasNext() {
+		if tokens.Peek() == "(" {
+			root.AddChild(parseList(tokens))
+		} else if tokens.Peek() == ")" {
+			// Consume ) and stop looping as this is the end of the
+			// current list.
+			tokens.Next()
+			break
+		} else {
+			root.AddChild(parseAtom(tokens))
 		}
 	}
 
-	for _, r := range code {
-		switch r {
-		case '(':
-			push("(")
-		case ')':
-			push(")")
-		default:
-			if unicode.IsSpace(r) {
-				push("")
-			} else {
-				token.WriteRune(r)
-			}
+	return root
+}
+
+func parse(tokens *TokenIterator) Node {
+	for tokens.HasNext() {
+		if tokens.Peek() == "'" {
+			tokens.Next()
+			quote := NewNodeList()
+			quote.AddChild(NewNodeSymbol("quote"))
+			quote.AddChild(parse(tokens))
+			return quote
+		} else if tokens.Peek() == "(" {
+			return parseList(tokens)
+		} else {
+			return parseAtom(tokens)
 		}
 	}
 
-	push("")
-	fmt.Println(strings.Join(tokens, ", "))
-	fmt.Println(len(tokens))
+	panic("unreachable")
+}
+
+func Parse(tokens *TokenIterator) Node {
+	progn := NewNodeList()
+	progn.AddChild(NewNodeSymbol("progn"))
+
+	for tokens.HasNext() {
+		progn.AddChild(parse(tokens))
+	}
+
+	return progn
 }
