@@ -1,17 +1,40 @@
 package mist
 
-import "strconv"
+import (
+	"strconv"
+)
+
+func consume(iterator *TokenIterator, tokens ...string) {
+	if !iterator.HasNext() {
+		panic("TODO")
+	}
+
+	for _, token := range tokens {
+		if iterator.Peek() == token {
+			iterator.Next()
+			return
+		}
+	}
+
+	panic("TODO")
+}
+
+func consumeNot(iterator *TokenIterator, tokens ...string) string {
+	if !iterator.HasNext() {
+		panic("TODO")
+	}
+
+	for _, token := range tokens {
+		if iterator.Peek() == token {
+			panic("TODO")
+		}
+	}
+
+	return iterator.Next()
+}
 
 func parseAtom(tokens *TokenIterator) Node {
-	if !tokens.HasNext() {
-		panic("TODO")
-	}
-
-	if next := tokens.Peek(); next == "(" || next == ")" {
-		panic("TODO")
-	}
-
-	next := tokens.Next() // Consume
+	next := consumeNot(tokens, "(", ")")
 
 	parsed, err := strconv.ParseUint(next, 10, 64)
 	if err == nil {
@@ -22,43 +45,37 @@ func parseAtom(tokens *TokenIterator) Node {
 }
 
 func parseList(tokens *TokenIterator) Node {
-	if tokens.Peek() != "(" {
-		panic("TODO")
-	}
+	consume(tokens, "(")
 
-	// Consume (.
-	tokens.Next()
-
-	// Prepare stack.
 	root := NewNodeList()
-
 	for tokens.HasNext() {
-		if tokens.Peek() == "(" {
+		if tokens.Peek() == "(" { //nolint:gocritic
+			// That's a nested list, go deeper.
 			root.AddChild(parseList(tokens))
 		} else if tokens.Peek() == ")" {
-			// Consume ) and stop looping as this is the end of the
-			// current list.
-			tokens.Next()
 			break
 		} else {
 			root.AddChild(parseAtom(tokens))
 		}
 	}
 
+	consume(tokens, ")")
+
 	return root
 }
 
 func parse(tokens *TokenIterator) Node {
 	for tokens.HasNext() {
-		if tokens.Peek() == "'" {
+		switch tokens.Peek() {
+		case "'":
 			tokens.Next()
 			quote := NewNodeList()
 			quote.AddChild(NewNodeSymbol("quote"))
 			quote.AddChild(parse(tokens))
 			return quote
-		} else if tokens.Peek() == "(" {
+		case "(":
 			return parseList(tokens)
-		} else {
+		default:
 			return parseAtom(tokens)
 		}
 	}

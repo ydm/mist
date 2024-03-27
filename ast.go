@@ -2,12 +2,30 @@ package mist
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
-// +-------+
-// | Nodle |
-// +-------+
+// +---------+
+// | Visitor |
+// +---------+
+
+type Visitor interface {
+	VisitUint256(literal uint64)
+	VisitSymbol(symbol string)
+
+	VisitFunction(name string, args []Node)
+}
+
+func VisitSequence(v Visitor, nodes []Node) {
+	for _, node := range nodes {
+		node.Accept(v)
+	}
+}
+
+// +------+
+// | Node |
+// +------+
 
 const (
 	TypeList = iota
@@ -16,40 +34,39 @@ const (
 	TypeUint256
 )
 
-
 type Node struct {
 	Type int
 
-	ValueString string
-	ValueUint256 uint64			// TODO
+	ValueString  string
+	ValueUint256 uint64 // TODO
 
 	Children []Node
 }
 
 func NewNodeUint256(literal uint64) Node {
 	return Node{
-		Type: TypeUint256,
-		ValueString: "",
+		Type:         TypeUint256,
+		ValueString:  "",
 		ValueUint256: literal,
-		Children: nil,
+		Children:     nil,
 	}
 }
 
 func NewNodeSymbol(symbol string) Node {
-	return Node {
-		Type: TypeSymbol,
-		ValueString: symbol,
+	return Node{
+		Type:         TypeSymbol,
+		ValueString:  symbol,
 		ValueUint256: 0,
-		Children: nil,
+		Children:     nil,
 	}
 }
 
 func NewNodeList() Node {
-	return Node {
-		Type: TypeList,
-		ValueString: "",
+	return Node{
+		Type:         TypeList,
+		ValueString:  "",
 		ValueUint256: 0,
-		Children: make([]Node, 0, 4),
+		Children:     make([]Node, 0, 4),
 	}
 }
 
@@ -65,9 +82,29 @@ func (n *Node) IsAtom() bool {
 	return n.Type != TypeList
 }
 
+func (n *Node) Accept(v Visitor) {
+	switch n.Type {
+	case TypeList:
+		if len(n.Children) < 1 {
+			// TODO: I should support arrays too...
+			panic("TODO")
+		}
+
+		if n.Children[0].Type != TypeSymbol {
+			panic("TODO")
+		}
+
+		v.VisitFunction(n.Children[0].ValueString, n.Children[1:])
+	case TypeSymbol:
+		v.VisitSymbol(n.ValueString)
+	case TypeUint256:
+		v.VisitUint256(n.ValueUint256)
+	}
+}
+
 func (n *Node) String() string {
 	switch n.Type {
-    case TypeList:
+	case TypeList:
 		inner := make([]string, 0, len(n.Children))
 		for _, child := range n.Children {
 			inner = append(inner, child.String())
@@ -76,7 +113,7 @@ func (n *Node) String() string {
 	case TypeSymbol:
 		return n.ValueString
 	case TypeUint256:
-		return fmt.Sprintf("%d", n.ValueUint256)
+		return strconv.FormatUint(n.ValueUint256, 10)
 	default:
 		panic("TODO")
 	}

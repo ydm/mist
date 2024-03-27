@@ -1,0 +1,28 @@
+linters:
+  enable-all: true
+  disable:
+    - deadcode
+    - scopelint
+    - maligned
+    - interfacer
+    - exhaustivestruct
+    - nosnakecase
+    - varcheck
+    - structcheck
+    - ifshort
+    - golint
+
+    - cyclop
+    - depguard                  # TODO
+    - forbidigo
+    - funlen
+    - gocyclo
+    - gomnd
+    - lll
+    - nlreturn
+    - varnamelen
+    - wsl
+    
+issues:
+  exclude-files:
+    - opcodes.go

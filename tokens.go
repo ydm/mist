@@ -5,10 +5,6 @@ import (
 	"unicode"
 )
 
-// +--------------+
-// | Tokenization |
-// +--------------+
-
 type TokenIterator struct {
 	tokens []string
 	index  int
@@ -51,7 +47,7 @@ func Tokenize(code string) TokenIterator {
 			builder.Reset()
 		}
 
-		if len(token) > 0 {
+		if token != "" {
 			tokens.push(token)
 		}
 	}
