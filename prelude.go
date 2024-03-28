@@ -2,7 +2,34 @@ package mist
 
 import "fmt"
 
-func FnWhen(v *BytecodeVisitor, cond Node, body []Node) {
+func assertArgsEq(fn string, args []Node, want int) {
+	if have := len(args); have != want {
+		panic(fmt.Sprintf(
+			"wront number of arguments for (%s): have %d, want %d",
+			fn,
+			have,
+			want,
+		))
+	}
+}
+
+func assertArgsGte(fn string, args []Node, want int) {
+	if have := len(args); have < want {
+		panic(fmt.Sprintf(
+			"wront number of arguments for (%s): have %d, want at least %d",
+			fn,
+			have,
+			want,
+		))
+	}
+}
+
+func FnWhen(v *BytecodeVisitor, args []Node) {
+	assertArgsGte("when", args, 1)
+
+	cond := args[0]
+	body := args[1:]
+
 	// Push condition onto stack.
 	cond.Accept(v)
 
@@ -22,7 +49,9 @@ func FnWhen(v *BytecodeVisitor, cond Node, body []Node) {
 	v.pushOp(JUMPDEST)
 }
 
-func FnRevert(v *BytecodeVisitor) {
+func FnRevert(v *BytecodeVisitor, args []Node) {
+	assertArgsEq("revert", args, 0)
+
 	zero := NewNodeUint256(0)
 	zero.Accept(v)
 	zero.Accept(v)

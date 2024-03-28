@@ -75,19 +75,9 @@ func (v *BytecodeVisitor) VisitFunction(fn string, args []Node) {
 	} else if op, ok := IsAlpha(fn); ok {
 		v.pushOp(op)
 	} else if fn == "revert" {
-		if len(args) != 0 {
-			panic("(revert) accepts no arguments")
-		}
-
-		FnRevert(v)
+		FnRevert(v, args)
 	} else if fn == "when" {
-		if len(args) < 2 {
-			panic("(when cond &rest body) needs both cond and body")
-		}
-
-		cond := args[0]
-		body := args[1:]
-		FnWhen(v, cond, body)
+		FnWhen(v, args)
 	} else {
 		panic("unrecognized function: " + fn)
 	}

@@ -51,6 +51,9 @@ func TestCompileWhen(t *testing.T) {
 	t.Parallel()
 
 	want := []string{
+		"600119610007575b",
+		"600119610007575b00",
+
 		"60011961000857005b",
 		"60011961000857005b00",
 
@@ -61,6 +64,9 @@ func TestCompileWhen(t *testing.T) {
 	}
 
 	cases := []string{
+		"(when 1)",
+		"(when 1) (stop)",
+
 		"(when 1 (stop))",
 		"(when 1 (stop)) (stop)",
 
