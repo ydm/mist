@@ -17,7 +17,8 @@ func TestCompileVariadic(t *testing.T) {
 		"6001600260030103",
 		"6002600404",
 		"6006600260040460016003010203",
-		"6007600316600116",
+		"6007600317600117",
+		"6007600317600117",
 	}
 
 	cases := []string{
@@ -29,6 +30,9 @@ func TestCompileVariadic(t *testing.T) {
 		"(/ 4 2)",
 		"(- (* (+ 3 1) (/ 4 2)) 6)",
 		"(logand 1 3 7)",
+		"(& 1 3 7)",
+		"(logior 1 3 7)",
+		"(| 1 3 7)",
 	}
 
 	for i, c := range cases {
@@ -78,7 +82,7 @@ func TestCompileWhen(t *testing.T) {
 
 func TestCompileComplex(t *testing.T) {
 	t.Parallel()
-	
+
 	want := []string{
 		// "366004101961000e5760006000fd5b"
 		"60003560e01c63a7a0d53714",
@@ -101,5 +105,4 @@ func TestCompileComplex(t *testing.T) {
 
 func TestCompileNative(t *testing.T) {
 	t.Parallel()
-
 }

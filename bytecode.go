@@ -8,7 +8,7 @@ import (
 
 const (
 	freeMemoryPtr = 0x40
-	freeMemory = 0x80
+	freeMemory    = 0x80
 )
 
 // +-----------------+
@@ -16,7 +16,6 @@ const (
 // +-----------------+
 
 type BytecodeVisitor struct {
-	labels   []int // Label (index) to position.
 	segments []string
 }
 
@@ -44,7 +43,6 @@ func (v *BytecodeVisitor) pushPointer() int {
 	return index
 }
 
-
 func (v *BytecodeVisitor) pushSegment(code string) {
 	v.segments = append(v.segments, code)
 }
@@ -61,7 +59,7 @@ func (v *BytecodeVisitor) pushUnsigned(x uint64) {
 	v.pushOp(op)
 
 	padding := ""
-	if len(hex) % 2 == 1 {
+	if len(hex)%2 == 1 {
 		padding = "0"
 	}
 	v.pushSegment(fmt.Sprintf(
@@ -83,7 +81,6 @@ func (v *BytecodeVisitor) VisitList() {
 }
 
 func (v *BytecodeVisitor) VisitFunction(fn string, args []Node) {
-	//nolint:gocritic,nestif
 	if isVariadic(fn) {
 		v.visitVariadicOp(fn, args)
 	} else if op, nargs, ok := isNative(fn); ok {
@@ -95,9 +92,6 @@ func (v *BytecodeVisitor) VisitFunction(fn string, args []Node) {
 	} else {
 		panic("unrecognized function: " + fn)
 	}
-
-	// TODO: KECCAK256
-
 }
 
 func (v *BytecodeVisitor) VisitSymbol(_ string) {
@@ -119,59 +113,6 @@ func (v *BytecodeVisitor) String() string {
 // | Private |
 // +---------+
 
-func (v *BytecodeVisitor) visitAlpha(fn string) {
-	var name string
-	switch fn {
-	case "address":
-		name = "ADDRESS"
-	case "origin":
-		name = "ORIGIN"
-	case "caller":
-		name = "CALLER"
-	case "call-value":
-		name = "CALLVALUE"
-	case "calldata-load":
-		name = "CALLDATALOAD"
-	case "calldata-size":
-		name = "CALLDATASIZE"
-	case "code-size":
-		name = "CODESIZE"
-	case "gas-price":
-		name = "GASPRICE"
-	case "return-data-size":
-		name = "RETURNDATASIZE"
-	case "coinbase":
-		name = "COINBASE"
-	case "timestamp":
-		name = "TIMESTAMP"
-	case "block-number":
-		name = "NUMBER"
-	case "prev-randao":
-		name = "PREVRANDAO"
-	case "gas-limit":
-		name = "GASLIMIT"
-	case "chain-id":
-		name = "CHAINID"
-	case "self-balance":
-		name = "SELFBALANCE"
-	case "base-fee":
-		name = "BASEFEE"
-	default:
-		panic("unrecognized alpha op: " + fn)
-	}
-
-	op, ok := stringToOp[name]
-	if !ok {
-		panic("TODO")
-	}
-
-	v.pushSegment(fmt.Sprintf("%02x", byte(op)))
-}
-
-func (v *BytecodeVisitor) visitOp(fn string, args []Node) {
-
-}
-
 func (v *BytecodeVisitor) visitVariadicOp(fn string, args []Node) {
 	assertArgsGte(fn, args, 2)
 
@@ -185,17 +126,23 @@ func (v *BytecodeVisitor) visitVariadicOp(fn string, args []Node) {
 		op = SUB
 	case "/":
 		op = DIV // TODO: SDIV
+	case "&":
+		fallthrough
 	case "logand":
 		op = AND
+	case "|":
+		fallthrough
 	case "logior":
 		op = OR
+	case "^":
+		fallthrough
 	case "logxor":
 		op = XOR
 	default:
 		panic("unrecognized arithmetic op: " + fn)
 	}
 
-	last := len(args)-1
+	last := len(args) - 1
 	args[last].Accept(v)
 	for i := last - 1; i >= 0; i-- {
 		args[i].Accept(v)

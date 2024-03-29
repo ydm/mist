@@ -41,7 +41,7 @@ func parseAtom(tokens *TokenIterator) Node {
 		// TODO: Parse uint256
 		parsed, err := strconv.ParseUint(next[2:], 16, 64)
 		if err != nil {
-			panic(err)			// TODO
+			panic(err) // TODO
 		}
 		return NewNodeUint256(parsed)
 	}

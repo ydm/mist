@@ -4,7 +4,7 @@ import "strings"
 
 func StripComments(code string) string {
 	// TODO: Mist doesn't support strings or any other form of
-	// escaping ';', so this funciton is good enough.
+	// escaping ';', so this function is good enough.
 
 	var out strings.Builder
 

@@ -17,10 +17,12 @@ linters:
     - forbidigo
     - funlen
     - gocyclo
+    - godox                     # I'll have as many TODOs as I like.
     - gomnd
     - lll
     - nlreturn
     - varnamelen
+    - whitespace
     - wsl
     
 issues:

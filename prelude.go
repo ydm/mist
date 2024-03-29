@@ -32,9 +32,7 @@ func isNative(tok string) (OpCode, int, bool) {
 	switch tok {
 	case "stop":
 		return STOP, 0, true
-
-	// case SIGNEXTEND
-
+	// SIGNEXTEND
 	case "=":
 		return EQ, 2, true
 	case "not":
@@ -42,6 +40,8 @@ func isNative(tok string) (OpCode, int, bool) {
 	case "zerop":
 		return ISZERO, 1, true
 	case "~":
+		fallthrough
+	case "lognot":
 		return NOT, 1, true
 	case "byte": // (byte word which)
 		return BYTE, 2, true
@@ -51,7 +51,8 @@ func isNative(tok string) (OpCode, int, bool) {
 	case ">>": // (>> value count)
 		return SHR, 2, true // TODO: SAR
 
-	// α == 1
+	// TODO: case "keccak256": KECCAK256, 2, true
+
 	case "address":
 		return ADDRESS, 0, true
 	case "balance":
@@ -99,25 +100,27 @@ func isNative(tok string) (OpCode, int, bool) {
 		return SELFBALANCE, 0, true
 	case "base-fee":
 		return BASEFEE, 0, true
-
 	// case "pop":
-	case "mload": // (mload start)
-		return MLOAD, 1, true
-	case "mstore": // (mstore value start)
-		return MSTORE, 2, true
-	case "mstore8":
-		return MSTORE8, 2, true
-	case "sload": // (sload word-index)
-		return SLOAD, 1, true
-	case "sstore": // (sstore value word-index)
-		return SSTORE, 2, true
-
+	// 	return POP, 0, true
+	// case "mload": // (mload start)
+	// 	return MLOAD, 1, true
+	// case "mstore": // (mstore value start)
+	// 	return MSTORE, 2, true
+	// case "mstore8":
+	// 	return MSTORE8, 2, true
+	// case "sload": // (sload word-index)
+	// 	return SLOAD, 1, true
+	// case "sstore": // (sstore value word-index)
+	// 	return SSTORE, 2, true
 	// case "jump":
+	//
 	// case "jumpi":
-	// case "program-counter": return PC, 0, true
-	case "memory-size":
-		return MSIZE, 0, true
-	case "gas":
+	//
+	// case "program-counter":
+	// 	return PC, 0, true
+	// case "memory-size":
+	// 	return MSIZE, 0, true
+	case "available-gas":
 		return GAS, 0, true
 	}
 
@@ -143,7 +146,10 @@ func isNative(tok string) (OpCode, int, bool) {
 func isVariadic(tok string) bool {
 	variadic := []string{
 		"*", "+", "-", "/",
-		"logand", "logior", "logxor",
+		"~", "lognot",
+		"&", "logand",
+		"|", "logior",
+		"^", "logxor",
 	}
 	for _, x := range variadic {
 		if tok == x {
@@ -265,7 +271,7 @@ func fnUnless(v *BytecodeVisitor, args []Node) {
 		panic("TODO")
 	}
 	v.segments[pointer] = code
-	v.pushOp(JUMPDEST)	
+	v.pushOp(JUMPDEST)
 }
 
 func fnWhen(v *BytecodeVisitor, args []Node) {
@@ -310,7 +316,7 @@ func isPreludeFunc(tok string) (PreludeFunction, bool) {
 		return fnCmpGT, true // TODO: SGT
 
 	case "%":
-		// (% x y) returns remainder of x divided by y
+		// (% x y) returns x%y, the remainder of x divided by y
 		return fnMod, true
 	case "+%":
 		// (+% x y m) returns (x+y)%m
