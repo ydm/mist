@@ -31,6 +31,7 @@ const (
 	TypeList = iota
 
 	TypeSymbol
+	TypeInt256
 	TypeUint256
 )
 
@@ -78,9 +79,55 @@ func (n *Node) AddChild(child Node) {
 	n.Children = append(n.Children, child)
 }
 
+// +------------+
+// | Predicates |
+// +------------+
+
 func (n *Node) IsAtom() bool {
 	return n.Type != TypeList
 }
+
+func (n *Node) IsNumber() bool {
+	return n.Type == TypeInt256 || n.Type == TypeUint256
+}
+
+func (n *Node) IsSigned() bool {
+	return n.Type == TypeInt256
+}
+
+func (n *Node) IsUnsigned() bool {
+	return n.Type == TypeUint256
+}
+
+func AllAtoms(nodes []Node) bool {
+	allAtoms := true
+	for i := range nodes {
+		allAtoms = allAtoms && nodes[i].IsAtom()
+	}
+	return allAtoms
+}
+
+func AllNumbers(nodes []Node) bool {
+	allNumbers := true
+	for i := range nodes {
+		allNumbers = allNumbers && nodes[i].IsNumber()
+	}
+	return allNumbers
+}
+
+func AllSigned(nodes []Node) bool {
+	allNumbers := true
+	allSigned := true
+	for i := range nodes {
+		allNumbers = allNumbers && nodes[i].IsNumber()
+		allSigned = allSigned && nodes[i].IsSigned()
+	}
+	return allNumbers && allSigned
+}
+
+// +---------+
+// | Visitor |
+// +---------+
 
 func (n *Node) Accept(v Visitor) {
 	switch n.Type {

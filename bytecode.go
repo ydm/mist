@@ -68,19 +68,20 @@ func (v *BytecodeVisitor) VisitList() {
 
 func (v *BytecodeVisitor) VisitFunction(fn string, args []Node) {
 	//nolint:gocritic,nestif
-	if fn == "progn" {
-		VisitSequence(v, args)
-	} else if IsVariadic(fn) {
+	if isVariadic(fn) {
 		v.visitVariadicOp(fn, args)
-	} else if op, ok := IsAlpha(fn); ok {
+	} else if op, nargs, ok := isNative(fn); ok {
+		assertArgsEq(fn, args, nargs)
+		VisitSequence(v, args)
 		v.pushOp(op)
-	} else if fn == "revert" {
-		FnRevert(v, args)
-	} else if fn == "when" {
-		FnWhen(v, args)
+	} else if callable, ok := isPreludeFunc(fn); ok {
+		callable(v, args)
 	} else {
 		panic("unrecognized function: " + fn)
 	}
+
+	// TODO: KECCAK256
+	
 }
 
 func (v *BytecodeVisitor) VisitSymbol(_ string) {
@@ -152,14 +153,12 @@ func (v *BytecodeVisitor) visitAlpha(fn string) {
 	v.pushSegment(fmt.Sprintf("%02x", byte(op)))
 }
 
-func (v *BytecodeVisitor) visitVariadicOp(fn string, args []Node) {
-	if !IsVariadic(fn) {
-		panic("TODO")
-	}
+func (v *BytecodeVisitor) visitOp(fn string, args []Node) {
 
-	if len(args) < 2 {
-		panic("TODO")
-	}
+}
+
+func (v *BytecodeVisitor) visitVariadicOp(fn string, args []Node) {
+	assertArgsGte(fn, args, 2)
 
 	var op OpCode
 	switch fn {
@@ -170,13 +169,11 @@ func (v *BytecodeVisitor) visitVariadicOp(fn string, args []Node) {
 	case "-":
 		op = SUB
 	case "/":
-		op = DIV
-	// TODO: SDIV
+		op = DIV // TODO: SDIV
 	case "<":
-		op = LT
+		op = LT // TODO: SLT
 	case ">":
-		op = GT
-	// TODO: SLT, GT
+		op = GT // TODO: SGT
 	case "=":
 		op = EQ
 	case "logand":

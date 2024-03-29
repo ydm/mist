@@ -5,8 +5,9 @@ pragma solidity ^0.8.24;
 contract Empty {
     uint256 one;
 
-    function something() external payable {
-        one = 169;
+    function something() external payable returns (uint256) {
+        uint256 x = 69;
+        return x;
     }
 
     constructor() payable {}
