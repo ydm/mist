@@ -1,3 +1,5 @@
+Code length can never exceed 2^16 bytes (64 megabytes)
+
 Functions:
 
 stop
@@ -6,8 +8,8 @@ address
 origin
 caller
 call-value
-call-data-load
-call-data-size
+calldata-load
+calldata-size
 code-size
 gas-price
 return-data-size

@@ -2,35 +2,36 @@ package mist
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
-// +---------+
-// | Segment |
-// +---------+
-
-type segment struct {
-	position int    // Position in global code.
-	code     string // Actual code in hex.
-}
-
-func (s segment) Len() int {
-	return len(s.code)
-}
+const (
+	freeMemoryPtr = 0x40
+	freeMemory = 0x80
+)
 
 // +-----------------+
 // | BytecodeVisitor |
 // +-----------------+
 
 type BytecodeVisitor struct {
-	labels []int // Label (index) to position.
-	output []segment
+	labels   []int // Label (index) to position.
+	segments []string
 }
 
 func NewBytecodeVisitor() BytecodeVisitor {
-	return BytecodeVisitor{
-		output: make([]segment, 0, 256),
+	v := BytecodeVisitor{
+		segments: make([]string, 0, 256),
 	}
+
+	// Initialize the free memory pointer.  Mist follows the same
+	// memory layout as Solidity.
+	v.pushUnsigned(freeMemory)
+	v.pushUnsigned(freeMemoryPtr)
+	v.pushOp(MSTORE)
+
+	return v
 }
 
 func (v *BytecodeVisitor) pushOp(op OpCode) {
@@ -38,29 +39,44 @@ func (v *BytecodeVisitor) pushOp(op OpCode) {
 }
 
 func (v *BytecodeVisitor) pushPointer() int {
-	index := len(v.output)
-
-	position := v.codeLength()
-	v.output = append(v.output, segment{
-		position: position,
-		code:     "POINTR", // PUSH2 + two more bytes
-	})
-
+	index := len(v.segments)
+	v.segments = append(v.segments, "POINTR") // PUSH2 + two bytes address
 	return index
 }
 
+
 func (v *BytecodeVisitor) pushSegment(code string) {
-	position := v.codeLength()
-	v.output = append(v.output, segment{position, code})
+	v.segments = append(v.segments, code)
+}
+
+func (v *BytecodeVisitor) pushUnsigned(x uint64) {
+	hex := strconv.FormatUint(x, 16)
+
+	length := len(hex)/2 + len(hex)%2
+	if length < 1 || 32 < length {
+		panic("TODO")
+	}
+
+	op := OpCode(byte(PUSH0) + byte(length))
+	v.pushOp(op)
+
+	padding := ""
+	if len(hex) % 2 == 1 {
+		padding = "0"
+	}
+	v.pushSegment(fmt.Sprintf(
+		"%s%s",
+		padding,
+		hex,
+	))
 }
 
 func (v *BytecodeVisitor) codeLength() int {
-	length := 0
-	if len(v.output) > 0 {
-		last := v.output[len(v.output)-1]
-		length = last.position + len(last.code)/2
+	ans := 0
+	for i := range v.segments {
+		ans += len(v.segments[i]) / 2
 	}
-	return length
+	return ans
 }
 
 func (v *BytecodeVisitor) VisitList() {
@@ -81,21 +97,20 @@ func (v *BytecodeVisitor) VisitFunction(fn string, args []Node) {
 	}
 
 	// TODO: KECCAK256
-	
+
 }
 
 func (v *BytecodeVisitor) VisitSymbol(_ string) {
 }
 
 func (v *BytecodeVisitor) VisitUint256(literal uint64) {
-	// TODO: Support PUSH[2-32]
-	v.pushSegment(fmt.Sprintf("60%02x", literal))
+	v.pushUnsigned(literal)
 }
 
 func (v *BytecodeVisitor) String() string {
 	var b strings.Builder
-	for i := range v.output {
-		b.WriteString(v.output[i].code)
+	for i := range v.segments {
+		b.WriteString(v.segments[i])
 	}
 	return b.String()
 }
@@ -115,9 +130,9 @@ func (v *BytecodeVisitor) visitAlpha(fn string) {
 		name = "CALLER"
 	case "call-value":
 		name = "CALLVALUE"
-	case "call-data-load":
+	case "calldata-load":
 		name = "CALLDATALOAD"
-	case "call-data-size":
+	case "calldata-size":
 		name = "CALLDATASIZE"
 	case "code-size":
 		name = "CODESIZE"
@@ -170,12 +185,6 @@ func (v *BytecodeVisitor) visitVariadicOp(fn string, args []Node) {
 		op = SUB
 	case "/":
 		op = DIV // TODO: SDIV
-	case "<":
-		op = LT // TODO: SLT
-	case ">":
-		op = GT // TODO: SGT
-	case "=":
-		op = EQ
 	case "logand":
 		op = AND
 	case "logior":
@@ -186,22 +195,10 @@ func (v *BytecodeVisitor) visitVariadicOp(fn string, args []Node) {
 		panic("unrecognized arithmetic op: " + fn)
 	}
 
-	args[0].Accept(v)
-	for _, arg := range args[1:] {
-		arg.Accept(v)
+	last := len(args)-1
+	args[last].Accept(v)
+	for i := last - 1; i >= 0; i-- {
+		args[i].Accept(v)
 		v.pushOp(op)
 	}
 }
-
-// TODO: MOD SMOD EXP NOT ISZERO SIGNEXTEND BYTE SHL SHR SAR ADDMOD MULMOD
-// TODO: BALANCE
-
-// TODO:
-// BALANCE, CALLDATALOAD, CALLDATACOPY, CODECOPY, EXTCODESIZE, EXTCODECOPY,
-// RETURNDATACOPY, EXTCODEHASH, BLOCKHASH,
-
-/*
- (when (< (call-data-size) 4) (revert 00 00))
- (shr (call-data-load) e0)
- (dup1)
-*/

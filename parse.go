@@ -2,6 +2,7 @@ package mist
 
 import (
 	"strconv"
+	"strings"
 )
 
 func consume(iterator *TokenIterator, tokens ...string) {
@@ -35,6 +36,15 @@ func consumeNot(iterator *TokenIterator, tokens ...string) string {
 
 func parseAtom(tokens *TokenIterator) Node {
 	next := consumeNot(tokens, "(", ")")
+
+	if strings.HasPrefix(next, "0x") {
+		// TODO: Parse uint256
+		parsed, err := strconv.ParseUint(next[2:], 16, 64)
+		if err != nil {
+			panic(err)			// TODO
+		}
+		return NewNodeUint256(parsed)
+	}
 
 	parsed, err := strconv.ParseUint(next, 10, 64)
 	if err == nil {

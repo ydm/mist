@@ -35,9 +35,13 @@ func isNative(tok string) (OpCode, int, bool) {
 
 	// case SIGNEXTEND
 
+	case "=":
+		return EQ, 2, true
+	case "not":
+		return ISZERO, 1, true
 	case "zerop":
 		return ISZERO, 1, true
-	case "not":
+	case "~":
 		return NOT, 1, true
 	case "byte": // (byte word which)
 		return BYTE, 2, true
@@ -58,11 +62,11 @@ func isNative(tok string) (OpCode, int, bool) {
 		return CALLER, 0, true
 	case "call-value":
 		return CALLVALUE, 0, true
-	case "call-data-load": // (call-data-load start)
+	case "calldata-load": // (calldata-load start)
 		return CALLDATALOAD, 1, true
-	case "call-data-size":
+	case "calldata-size":
 		return CALLDATASIZE, 0, true
-	case "call-data-copy": // (call-data-copy length id-offset mm-start)
+	case "calldata-copy": // (calldata-copy length id-offset mm-start)
 		return CALLDATACOPY, 3, true
 	case "code-size":
 		return CODESIZE, 0, true
@@ -139,7 +143,6 @@ func isNative(tok string) (OpCode, int, bool) {
 func isVariadic(tok string) bool {
 	variadic := []string{
 		"*", "+", "-", "/",
-		"<", ">", "=",
 		"logand", "logior", "logxor",
 	}
 	for _, x := range variadic {
@@ -162,6 +165,24 @@ func fnAddmod(v *BytecodeVisitor, args []Node) {
 	y.Accept(v)
 	x.Accept(v)
 	v.pushOp(ADDMOD)
+}
+
+func fnCmpGT(v *BytecodeVisitor, args []Node) {
+	assertArgsEq(">", args, 2)
+
+	x, y := args[0], args[1]
+	y.Accept(v)
+	x.Accept(v)
+	v.pushOp(GT)
+}
+
+func fnCmpLT(v *BytecodeVisitor, args []Node) {
+	assertArgsEq("<", args, 2)
+
+	x, y := args[0], args[1]
+	y.Accept(v)
+	x.Accept(v)
+	v.pushOp(LT)
 }
 
 func fnExpt(v *BytecodeVisitor, args []Node) {
@@ -197,7 +218,16 @@ func fnProgn(v *BytecodeVisitor, args []Node) {
 }
 
 func fnReturn(v *BytecodeVisitor, args []Node) {
-	// TODO
+	assertArgsEq("return", args, 1)
+
+	v.pushUnsigned(0x20)          // [20]
+	v.pushUnsigned(freeMemoryPtr) // [FP 20]
+	v.pushOp(MLOAD)               // [FM 20]
+	args[0].Accept(v)             // [RV FM 20]
+	v.pushOp(DUP2)                // [FM RV FM 20]
+	v.pushOp(MSTORE)              // [FM 20]
+	v.pushOp(RETURN)              // []
+	v.pushOp(INVALID)
 }
 
 func fnRevert(v *BytecodeVisitor, args []Node) {
@@ -205,8 +235,37 @@ func fnRevert(v *BytecodeVisitor, args []Node) {
 
 	zero := NewNodeUint256(0)
 	zero.Accept(v)
-	zero.Accept(v)
+
+	v.pushOp(DUP1)
 	v.pushOp(REVERT)
+}
+
+func fnUnless(v *BytecodeVisitor, args []Node) {
+	assertArgsGte("unless", args, 1)
+
+	cond := args[0]
+	body := args[1:]
+
+	// Push condition onto stack.
+	cond.Accept(v)
+
+	// Push a pointer and jump.
+	pointer := v.pushPointer()
+	v.pushOp(JUMPI)
+
+	// Now push the body.
+	VisitSequence(v, body)
+
+	// Next, we're pushing a JUMPDEST that matches the JUMP
+	// instruction, but not before we update the original pointer to
+	// point to the address of that JUMPDEST.
+	dest := v.codeLength()
+	code := fmt.Sprintf("%02x%04x", byte(PUSH2), dest)
+	if len(code) != 6 {
+		panic("TODO")
+	}
+	v.segments[pointer] = code
+	v.pushOp(JUMPDEST)	
 }
 
 func fnWhen(v *BytecodeVisitor, args []Node) {
@@ -219,7 +278,7 @@ func fnWhen(v *BytecodeVisitor, args []Node) {
 	cond.Accept(v)
 
 	// Invert the condition.
-	v.pushOp(NOT)
+	v.pushOp(ISZERO)
 
 	// Push a pointer and jump.
 	pointer := v.pushPointer()
@@ -229,8 +288,14 @@ func fnWhen(v *BytecodeVisitor, args []Node) {
 	VisitSequence(v, body)
 
 	// Next, we're pushing a JUMPDEST that matches the JUMP
-	// instruction, but not before we update the original pointer.
-	v.output[pointer].code = fmt.Sprintf("61%04x", v.codeLength())
+	// instruction, but not before we update the original pointer to
+	// point to the address of that JUMPDEST.
+	dest := v.codeLength()
+	code := fmt.Sprintf("%02x%04x", byte(PUSH2), dest)
+	if len(code) != 6 {
+		panic("TODO")
+	}
+	v.segments[pointer] = code
 	v.pushOp(JUMPDEST)
 }
 
@@ -238,6 +303,12 @@ type PreludeFunction func(v *BytecodeVisitor, args []Node)
 
 func isPreludeFunc(tok string) (PreludeFunction, bool) {
 	switch tok {
+
+	case "<":
+		return fnCmpLT, true // TODO: SLT
+	case ">":
+		return fnCmpGT, true // TODO: SGT
+
 	case "%":
 		// (% x y) returns remainder of x divided by y
 		return fnMod, true
@@ -253,13 +324,43 @@ func isPreludeFunc(tok string) (PreludeFunction, bool) {
 
 	case "progn":
 		return fnProgn, true
+	case "return":
+		return fnReturn, true
 	case "revert":
 		return fnRevert, true
+	case "unless":
+		return fnUnless, true
 	case "when":
 		return fnWhen, true
 	default:
 		return nil, false
 	}
+}
+
+// +-------------+
+// | Constructor |
+// +-------------+
+
+func MakeConstructor(deployedBytecode string) string {
+	v := NewBytecodeVisitor()
+
+	length := uint64(len(deployedBytecode) / 2)
+	v.pushUnsigned(length)
+	v.pushOp(DUP1)
+	pointer := v.pushPointer()
+	v.pushUnsigned(0)
+	v.pushOp(CODECOPY)
+	v.pushUnsigned(0)
+	v.pushOp(RETURN)
+	v.pushOp(INVALID)
+
+	code := fmt.Sprintf("%02x%04x", byte(PUSH2), v.codeLength())
+	if len(code) != 6 {
+		panic("TODO")
+	}
+	v.segments[pointer] = code
+
+	return v.String()
 }
 
 // +-------------+

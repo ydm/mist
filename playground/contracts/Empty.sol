@@ -6,8 +6,7 @@ contract Empty {
     uint256 one;
 
     function something() external payable returns (uint256) {
-        uint256 x = 69;
-        return x;
+        return 69;
     }
 
     constructor() payable {}
