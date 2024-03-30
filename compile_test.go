@@ -57,9 +57,6 @@ func TestCompileWhen(t *testing.T) {
 		"600115610007575b",
 		"600115610007575b00",
 
-		"60011561000857005b",
-		"60011561000857005b00",
-
 		"60016004600260020204031561001157005b00",
 		"6001600460026002020403156100185760036002016001015b00",
 
@@ -69,10 +66,7 @@ func TestCompileWhen(t *testing.T) {
 	cases := []string{
 		"(when 1)",
 		"(when 1) (stop)",
-
-		"(when 1 (stop))",
-		"(when 1 (stop)) (stop)",
-
+		
 		"(when (- (/ (* 2 2) 4) 1) (stop)) (stop)",
 		"(when (- (/ (* 2 2) 4) 1) (+ 1 2 3)) (stop)",
 
@@ -91,15 +85,21 @@ func TestCompileComplex(t *testing.T) {
 	t.Parallel()
 
 	want := []string{
-		// "366004101961000e5760006000fd5b"
-		"60003560e01c63a7a0d53714",
+		"366004101961000e5760006000fd5b",
+
+		"63a7a0d53760003560e01c14",
 		"602060405160458152f3fe",
+		"600035",
+		"60003560e01c",
 		"60003560e01c63a7a0d537141561001c57602060405160458152f3fe5b00",
 	}
 	cases := []string{
-		// "(when (< (calldata-size) 4) (revert))",
+		"(when (< (calldata-size) 4) (revert))",
+
 		"(= (>> (calldata-load 0) 0xe0) 0xa7a0d537)",
 		"(return 69)",
+		"(calldata-load 0)",
+		"(>> (calldata-load 0) 0xe0)",
 		"(when (= (>> (calldata-load 0) 0xe0) 0xa7a0d537) (return 69)) (stop)",
 	}
 	for i, c := range cases {

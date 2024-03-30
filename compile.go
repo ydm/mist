@@ -7,6 +7,5 @@ func Compile(program string) string {
 	visitor := NewBytecodeVisitor()
 	progn.Accept(&visitor)
 
-	code := visitor.String()
-	return code
+	return visitor.String()
 }

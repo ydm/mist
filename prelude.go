@@ -28,107 +28,118 @@ func assertArgsGte(fn string, args []Node, want int) {
 	}
 }
 
-func isNative(tok string) (OpCode, int, bool) {
-	switch tok {
+func handleNativeFunc(v *BytecodeVisitor, fn string, args []Node) bool {
+	var (
+		op    OpCode
+		nargs int
+		dir   int = 0
+	)
+
+	switch fn {
 	case "stop":
-		return STOP, 0, true
-	// SIGNEXTEND
-	case "=":
-		return EQ, 2, true
+		op, nargs, dir = STOP, 0, 1
+	// ADD is variadic.
+	// MUL is variadic.
+	// SUB is variadic.
+	// DIV is variadic.
+	// SDIV is NOT implemented.
+	case "%":
+		op, nargs, dir = MOD, 2, -1
+	// SMOD is NOT implemented.
+	case "+%":
+		op, nargs, dir = ADDMOD, 2, -1
+	case "*%":
+		op, nargs, dir = MULMOD, 2, -1
+	case "**":
+		fallthrough
+	case "expt":
+		op, nargs, dir = EXP, 2, -1
+	// SIGNEXTEND is NOT implemented.
+	// LT (<) is variadic.
+	// GT (>) is variadic.
+	// SLT is NOT implemented.
+	// SGT is NOT implemented.
+	// EQ (=) is variadic.
 	case "not":
-		return ISZERO, 1, true
+		fallthrough
 	case "zerop":
-		return ISZERO, 1, true
+		op, nargs, dir = ISZERO, 1, 1
+	// AND (logand, &) is variadic.
+	// OR (logior, |) is variadic.
+	// XOR (logxor, ^) is variadic.
 	case "~":
 		fallthrough
 	case "lognot":
-		return NOT, 1, true
-	case "byte": // (byte word which)
-		return BYTE, 2, true
-
+		op, nargs, dir = NOT, 1, 1
+	case "byte": // (byte word byte-index)
+		op, nargs, dir = BYTE, 2, 1
 	case "<<": // (<< value count)
-		return SHL, 2, true
+		op, nargs, dir = SHL, 2, 1
 	case ">>": // (>> value count)
-		return SHR, 2, true // TODO: SAR
-
-	// TODO: case "keccak256": KECCAK256, 2, true
-
+		op, nargs, dir = SHR, 2, 1
+	// SAR is NOT implemented.
+	// KECCAK256 is NOT implemented.
 	case "address":
-		return ADDRESS, 0, true
+		op, nargs, dir = ADDRESS, 0, 1
 	case "balance":
-		return BALANCE, 1, true
+		op, nargs, dir = BALANCE, 1, 1
 	case "origin":
-		return ORIGIN, 0, true
+		op, nargs, dir = ORIGIN, 0, 1
 	case "caller":
-		return CALLER, 0, true
+		op, nargs, dir = CALLER, 0, 1
 	case "call-value":
-		return CALLVALUE, 0, true
-	case "calldata-load": // (calldata-load start)
-		return CALLDATALOAD, 1, true
+		op, nargs, dir = CALLVALUE, 0, 1
+	case "calldata-load": // (calldata-load word-index)
+		op, nargs, dir = CALLDATALOAD, 1, 1
 	case "calldata-size":
-		return CALLDATASIZE, 0, true
+		op, nargs, dir = CALLDATASIZE, 0, 1
 	case "calldata-copy": // (calldata-copy length id-offset mm-start)
-		return CALLDATACOPY, 3, true
+		op, nargs, dir = CALLDATACOPY, 3, 1
 	case "code-size":
-		return CODESIZE, 0, true
+		op, nargs, dir = CODESIZE, 0, 1
 	case "code-copy":
-		return CODECOPY, 3, true // (code-copy length ib-offset mm-start)
+		op, nargs, dir = CODECOPY, 3, 1
 	case "gas-price":
-		return GASPRICE, 0, true
-	case "ext-code-size":
-		return EXTCODESIZE, 1, true
-	// case "ext-code-copy":
-	// case "return-data-size":
-	// case "return-data-copy":
-	// case "ext-code-hash":
-	// case "block-hash":
-	case "return-data-size":
-		return RETURNDATASIZE, 0, true
+		op, nargs, dir = GASPRICE, 0, 1
+	// EXTCODESIZE is NOT implemented.
+	// EXTCODECOPY is NOT implemented.
+	// RETURNDATASIZE is NOT implemented.
+	// RETURNDATACOPY is NOT implemented.
+	// EXTCODEHASH is NOT implemented.
+	// BLOCKHASH is NOT implemented.
 	case "coinbase":
-		return COINBASE, 0, true
+		op, nargs, dir = COINBASE, 0, 1
 	case "timestamp":
-		return TIMESTAMP, 0, true
+		op, nargs, dir = TIMESTAMP, 0, 1
 	case "block-number":
-		return NUMBER, 0, true
+		op, nargs, dir = NUMBER, 0, 1
 	case "prev-randao":
-		return PREVRANDAO, 0, true
+		op, nargs, dir = PREVRANDAO, 0, 1
 	case "gas-limit":
-		return GASLIMIT, 0, true
+		op, nargs, dir = GASLIMIT, 0, 1
 	case "chain-id":
-		return CHAINID, 0, true
+		op, nargs, dir = CHAINID, 0, 1
 	case "self-balance":
-		return SELFBALANCE, 0, true
+		op, nargs, dir = SELFBALANCE, 0, 1
 	case "base-fee":
-		return BASEFEE, 0, true
-	// case "pop":
-	// 	return POP, 0, true
-	// case "mload": // (mload start)
-	// 	return MLOAD, 1, true
-	// case "mstore": // (mstore value start)
-	// 	return MSTORE, 2, true
-	// case "mstore8":
-	// 	return MSTORE8, 2, true
-	// case "sload": // (sload word-index)
-	// 	return SLOAD, 1, true
-	// case "sstore": // (sstore value word-index)
-	// 	return SSTORE, 2, true
-	// case "jump":
-	//
-	// case "jumpi":
-	//
-	// case "program-counter":
-	// 	return PC, 0, true
-	// case "memory-size":
-	// 	return MSIZE, 0, true
+		op, nargs, dir = BASEFEE, 0, 1
+	// case "pop"
+	// case "mload"
+	// case "mstore"
+	// case "mstore8"
+	// case "sload"
+	// case "sstore"
+	// case "jump"
+	// case "jumpi"
+	// case "pc"
+	// case "msize"
 	case "available-gas":
-		return GAS, 0, true
-	}
-
+		op, nargs, dir = GAS, 0, 1
 	// case "jumpdest"
 	// case "push1..16"
 	// case "dup1..16"
 	// case "swap1..16"
-
+	// case "log0..4"
 	// case CREATE
 	// case CALL
 	// case CALLCODE
@@ -139,24 +150,96 @@ func isNative(tok string) (OpCode, int, bool) {
 	// case REVERT
 	// case INVALID
 	// case SELFDESTRUCT
-
-	return 0, 0, false
-}
-
-func isVariadic(tok string) bool {
-	variadic := []string{
-		"*", "+", "-", "/",
-		"~", "lognot",
-		"&", "logand",
-		"|", "logior",
-		"^", "logxor",
 	}
-	for _, x := range variadic {
-		if tok == x {
-			return true
-		}
+
+	if dir != 0 {
+		assertArgsEq(fn, args, nargs)
+		VisitSequence(v, args, dir)
+		v.addOp(op)
+		return true
 	}
 	return false
+}
+
+func handleVariadicFunc(v *BytecodeVisitor, fn string, args []Node) bool {
+	var op OpCode
+	var match = false
+
+	switch fn {
+	case "+":
+		op, match = ADD, true
+	case "*":
+		op, match = MUL, true
+	case "-":
+		op, match = SUB, true
+	case "/":
+		op, match = DIV, true
+	case "<":
+		op, match = LT, true
+	case ">":
+		op, match = GT, true
+	case "=":
+		op, match = EQ, true
+	case "&":
+		fallthrough
+	case "logand":
+		op, match = AND, true
+	case "|":
+		fallthrough
+	case "logior":
+		op, match = OR, true
+	case "^":
+		fallthrough
+	case "logxor":
+		op, match = XOR, true
+	}
+
+	if match {
+		assertArgsGte(fn, args, 2)
+		last := len(args) - 1
+		args[last].Accept(v)
+		for i := last - 1; i >= 0; i-- {
+			args[i].Accept(v)
+			v.addOp(op)
+		}
+		return true
+	}
+	return false
+}
+
+func handleInlineFunc(v *BytecodeVisitor, fn string, args []Node) bool {
+
+	switch fn {
+	case "%":
+		// (% x y) returns x%y, the remainder of x divided by y
+		fnMod(v, args)
+		return true
+	case "+%":
+		// (+% x y m) returns (x+y)%m
+		fnAddmod(v, args)
+		return true
+	case "*%":
+		// (*% x y m) returns (x*y)%m
+		fnMulmod(v, args)
+		return true
+	case "progn":
+		fnProgn(v, args)
+		return true
+	case "return":
+		fnReturn(v, args)
+		return true
+	case "revert":
+		fnRevert(v, args)
+		return true
+	case "unless":
+		fnUnless(v, args)
+		return true
+	case "when":
+		fnWhen(v, args)
+		return true
+	default:
+		return false
+	}
 }
 
 // +-------------------+
@@ -170,34 +253,7 @@ func fnAddmod(v *BytecodeVisitor, args []Node) {
 	m.Accept(v)
 	y.Accept(v)
 	x.Accept(v)
-	v.pushOp(ADDMOD)
-}
-
-func fnCmpGT(v *BytecodeVisitor, args []Node) {
-	assertArgsEq(">", args, 2)
-
-	x, y := args[0], args[1]
-	y.Accept(v)
-	x.Accept(v)
-	v.pushOp(GT)
-}
-
-func fnCmpLT(v *BytecodeVisitor, args []Node) {
-	assertArgsEq("<", args, 2)
-
-	x, y := args[0], args[1]
-	y.Accept(v)
-	x.Accept(v)
-	v.pushOp(LT)
-}
-
-func fnExpt(v *BytecodeVisitor, args []Node) {
-	assertArgsEq("expt", args, 2)
-
-	x, y := args[0], args[1]
-	y.Accept(v)
-	x.Accept(v)
-	v.pushOp(EXP)
+	v.addOp(ADDMOD)
 }
 
 func fnMod(v *BytecodeVisitor, args []Node) {
@@ -206,7 +262,7 @@ func fnMod(v *BytecodeVisitor, args []Node) {
 	x, y := args[0], args[1]
 	y.Accept(v)
 	x.Accept(v)
-	v.pushOp(MOD)
+	v.addOp(MOD)
 }
 
 func fnMulmod(v *BytecodeVisitor, args []Node) {
@@ -216,11 +272,11 @@ func fnMulmod(v *BytecodeVisitor, args []Node) {
 	m.Accept(v)
 	y.Accept(v)
 	x.Accept(v)
-	v.pushOp(ADDMOD)
+	v.addOp(ADDMOD)
 }
 
 func fnProgn(v *BytecodeVisitor, args []Node) {
-	VisitSequence(v, args)
+	VisitSequence(v, args, 1)
 }
 
 func fnReturn(v *BytecodeVisitor, args []Node) {
@@ -228,26 +284,24 @@ func fnReturn(v *BytecodeVisitor, args []Node) {
 
 	v.pushU64(0x20)          // [20]
 	v.pushU64(freeMemoryPtr) // [FP 20]
-	v.pushOp(MLOAD)          // [FM 20]
+	v.addOp(MLOAD)           // [FM 20]
 	args[0].Accept(v)        // [RV FM 20]
-	v.pushOp(DUP2)           // [FM RV FM 20]
-	v.pushOp(MSTORE)         // [FM 20]
-	v.pushOp(RETURN)         // []
-	v.pushOp(INVALID)
+	v.addOp(DUP2)            // [FM RV FM 20]
+	v.addOp(MSTORE)          // [FM 20]
+	v.addOp(RETURN)          // []
+	v.addOp(INVALID)
 }
 
 func fnRevert(v *BytecodeVisitor, args []Node) {
 	assertArgsEq("revert", args, 0)
 
-	zero := NewNodeU64(0)
-	zero.Accept(v)
-
-	v.pushOp(DUP1)
-	v.pushOp(REVERT)
+	v.pushU64(0)
+	v.addOp(DUP1)
+	v.addOp(REVERT)
 }
 
 func fnUnless(v *BytecodeVisitor, args []Node) {
-	assertArgsGte("unless", args, 1)
+	assertArgsGte("when", args, 1)
 
 	cond := args[0]
 	body := args[1:]
@@ -256,22 +310,15 @@ func fnUnless(v *BytecodeVisitor, args []Node) {
 	cond.Accept(v)
 
 	// Push a pointer and jump.
-	pointer := v.pushPointer()
-	v.pushOp(JUMPI)
+	jumpdest := newSegmentJumpdest()
+	v.addPointer(jumpdest.id)
+	v.addOp(JUMPI)
 
 	// Now push the body.
-	VisitSequence(v, body)
+	VisitSequence(v, body, 1)
 
-	// Next, we're pushing a JUMPDEST that matches the JUMP
-	// instruction, but not before we update the original pointer to
-	// point to the address of that JUMPDEST.
-	dest := v.codeLength()
-	code := fmt.Sprintf("%02x%04x", byte(PUSH2), dest)
-	if len(code) != 6 {
-		panic("TODO")
-	}
-	v.segments[pointer] = code
-	v.pushOp(JUMPDEST)
+	// Finally, add a JUMPDEST.
+	v.addSegment(jumpdest)
 }
 
 func fnWhen(v *BytecodeVisitor, args []Node) {
@@ -284,63 +331,18 @@ func fnWhen(v *BytecodeVisitor, args []Node) {
 	cond.Accept(v)
 
 	// Invert the condition.
-	v.pushOp(ISZERO)
+	v.addOp(ISZERO)
 
 	// Push a pointer and jump.
-	pointer := v.pushPointer()
-	v.pushOp(JUMPI)
+	jumpdest := newSegmentJumpdest()
+	v.addPointer(jumpdest.id)
+	v.addOp(JUMPI)
 
 	// Now push the body.
-	VisitSequence(v, body)
+	VisitSequence(v, body, 1)
 
-	// Next, we're pushing a JUMPDEST that matches the JUMP
-	// instruction, but not before we update the original pointer to
-	// point to the address of that JUMPDEST.
-	dest := v.codeLength()
-	code := fmt.Sprintf("%02x%04x", byte(PUSH2), dest)
-	if len(code) != 6 {
-		panic("TODO")
-	}
-	v.segments[pointer] = code
-	v.pushOp(JUMPDEST)
-}
-
-type PreludeFunction func(v *BytecodeVisitor, args []Node)
-
-func isPreludeFunc(tok string) (PreludeFunction, bool) {
-	switch tok {
-
-	case "<":
-		return fnCmpLT, true // TODO: SLT
-	case ">":
-		return fnCmpGT, true // TODO: SGT
-
-	case "%":
-		// (% x y) returns x%y, the remainder of x divided by y
-		return fnMod, true
-	case "+%":
-		// (+% x y m) returns (x+y)%m
-		return fnAddmod, true
-	case "*%":
-		// (*% x y m) returns (x*y)%m
-		return fnMulmod, true
-	case "expt":
-		// (expt x y) returns x**y
-		return fnExpt, true
-
-	case "progn":
-		return fnProgn, true
-	case "return":
-		return fnReturn, true
-	case "revert":
-		return fnRevert, true
-	case "unless":
-		return fnUnless, true
-	case "when":
-		return fnWhen, true
-	default:
-		return nil, false
-	}
+	// Finally, add a JUMPDEST.
+	v.addSegment(jumpdest)
 }
 
 // +-------------+
@@ -350,21 +352,18 @@ func isPreludeFunc(tok string) (PreludeFunction, bool) {
 func MakeConstructor(deployedBytecode string) string {
 	v := NewBytecodeVisitor()
 
+	label := newEmptySegment()
+
 	length := len(deployedBytecode) / 2
 	v.pushU64(uint64(length))
-	v.pushOp(DUP1)
-	pointer := v.pushPointer()
+	v.addOp(DUP1)
+	v.addPointer(label.id)
 	v.pushU64(0)
-	v.pushOp(CODECOPY)
+	v.addOp(CODECOPY)
 	v.pushU64(0)
-	v.pushOp(RETURN)
-	v.pushOp(INVALID)
-
-	code := fmt.Sprintf("%02x%04x", byte(PUSH2), v.codeLength())
-	if len(code) != 6 {
-		panic("TODO")
-	}
-	v.segments[pointer] = code
+	v.addOp(RETURN)
+	v.addOp(INVALID)
+	v.addSegment(label)
 
 	return v.String()
 }

@@ -3,26 +3,106 @@ package mist
 import (
 	"fmt"
 	"strings"
+	"sync/atomic"
 
 	"github.com/holiman/uint256"
 )
 
 const (
-	freeMemoryPtr = 0x40
-	freeMemory    = 0x80
+	freeMemoryPtr   = 0x40
+	freeMemoryStart = 0x80
 )
+
+// +---------+
+// | segment |
+// +---------+
+
+var _segmentID int32 = 0
+
+func makeSegmentID() int32 {
+	return atomic.AddInt32(&_segmentID, 1)
+}
+
+type segment struct {
+	id int32
+
+	code    string
+	pointer int32
+}
+
+func newSegmentCode(code string) segment {
+	return segment{makeSegmentID(), code, 0}
+}
+
+func newEmptySegment() segment {
+	return segment{makeSegmentID(), "", 0}
+}
+
+func newSegmentJumpdest() segment {
+	return newSegmentOpCode(JUMPDEST)
+}
+
+func newSegmentOpCode(op OpCode) segment {
+	return newSegmentCode(fmt.Sprintf("%02x", byte(op)))
+}
+
+func newSegmentPointer(jumpdest int32) segment {
+	return segment{makeSegmentID(), "", jumpdest}
+}
+
+func (s *segment) isPointer() bool {
+	return s.pointer != 0
+}
+
+func (s *segment) pointTo(pos int) {
+	if !s.isPointer() {
+		panic("not a pointer")
+	}
+
+	code := fmt.Sprintf("%02x%04x", byte(PUSH2), pos)
+	if len(code) != 6 {
+		panic("broken invariant")
+	}
+
+	if s.code != "" && s.code != code {
+		panic(fmt.Sprintf(
+			"trying to reassign a different position: old=%s new=%s",
+			s.code,
+			code,
+		))
+	}
+	s.code = code
+}
+
+func (s *segment) getCode() string {
+	if s.isPointer() && s.code == "" {
+		panic("pointer not initialized")
+	}
+
+	return s.code
+}
+
+func (s *segment) len() int {
+	if s.isPointer() {
+		// The length of this segment is 3 bytes: (PUSH2 AA BB).
+		return 3
+	} else {
+		// Each byte needs 2 hexadecimal characters.
+		return len(s.code) / 2
+	}
+}
 
 // +-----------------+
 // | BytecodeVisitor |
 // +-----------------+
 
 type BytecodeVisitor struct {
-	segments []string
+	segments []segment
 }
 
 func NewBytecodeVisitor() BytecodeVisitor {
 	v := BytecodeVisitor{
-		segments: make([]string, 0, 256),
+		segments: make([]segment, 0, 1024),
 	}
 
 	// Initialize the free memory pointer.  Mist follows the same
@@ -34,23 +114,60 @@ func NewBytecodeVisitor() BytecodeVisitor {
 	return v
 }
 
-func (v *BytecodeVisitor) pushOp(op OpCode) {
-	v.pushSegment(fmt.Sprintf("%02x", byte(op)))
+// codeLength return the number of bytes.
+func (v *BytecodeVisitor) codeLength() int {
+	ans := 0
+	for i := range v.segments {
+		ans += v.segments[i].len()
+	}
+	return ans
 }
 
-func (v *BytecodeVisitor) pushPointer() int {
+// +---------+
+// | Add fns |
+// +---------+
+
+func (v *BytecodeVisitor) addSegment(s segment) *segment {
 	index := len(v.segments)
-	v.segments = append(v.segments, "POINTR") // PUSH2 + two bytes address
-	return index
+	v.segments = append(v.segments, s)
+	return &v.segments[index]
 }
 
-func (v *BytecodeVisitor) pushSegment(code string) {
-	v.segments = append(v.segments, code)
+func (v *BytecodeVisitor) addCode(code string) {
+	v.addSegment(newSegmentCode(code))
 }
 
-func (v *BytecodeVisitor) pushU64(x uint64) {
-	v.pushU256(uint256.NewInt(x))
+func (v *BytecodeVisitor) addJumpdest() int32 {
+	return v.addSegment(newSegmentJumpdest()).id
 }
+
+func (v *BytecodeVisitor) addOp(op OpCode) {
+	v.addSegment(newSegmentOpCode(op))
+}
+
+func (v *BytecodeVisitor) addPointer(dest int32) *segment {
+	return v.addSegment(newSegmentPointer(dest))
+}
+
+func (v *BytecodeVisitor) addU256(x *uint256.Int) {
+	hex := x.Hex()
+
+	padding := ""
+	if len(hex)%2 == 1 {
+		padding = "0"
+	}
+
+	code := fmt.Sprintf("%s%s", padding, hex[2:])
+	v.addCode(code)
+}
+
+func (v *BytecodeVisitor) addU64(x uint64) {
+	v.addU256(uint256.NewInt(x))
+}
+
+// +----------+
+// | Push fns |
+// +----------+
 
 func (v *BytecodeVisitor) pushU256(x *uint256.Int) {
 	hex := x.Hex()
@@ -61,35 +178,24 @@ func (v *BytecodeVisitor) pushU256(x *uint256.Int) {
 	}
 
 	op := OpCode(byte(PUSH0) + byte(length))
-	v.pushOp(op)
-
-	padding := ""
-	if len(hex)%2 == 1 {
-		padding = "0"
-	}
-	v.pushSegment(fmt.Sprintf("%s%s", padding, hex[2:]))
+	v.addOp(op)
+	v.addU256(x)
 }
 
-func (v *BytecodeVisitor) codeLength() int {
-	ans := 0
-	for i := range v.segments {
-		ans += len(v.segments[i]) / 2
-	}
-	return ans
+func (v *BytecodeVisitor) pushU64(x uint64) {
+	v.pushU256(uint256.NewInt(x))
 }
 
 func (v *BytecodeVisitor) VisitList() {
 }
 
 func (v *BytecodeVisitor) VisitFunction(fn string, args []Node) {
-	if isVariadic(fn) {
-		v.visitVariadicOp(fn, args)
-	} else if op, nargs, ok := isNative(fn); ok {
-		assertArgsEq(fn, args, nargs)
-		VisitSequence(v, args)
-		v.pushOp(op)
-	} else if callable, ok := isPreludeFunc(fn); ok {
-		callable(v, args)
+	if handleNativeFunc(v, fn, args) {
+		// noop
+	} else if handleVariadicFunc(v, fn, args) {
+		// noop
+	} else if handleInlineFunc(v, fn, args) {
+		// noop
 	} else {
 		panic("unrecognized function: " + fn)
 	}
@@ -102,11 +208,34 @@ func (v *BytecodeVisitor) VisitNumber(x *uint256.Int) {
 	v.pushU256(x)
 }
 
+func (v *BytecodeVisitor) getPosition(id int32) int {
+	pos := 0
+	for i := range v.segments {
+		if v.segments[i].id == id {
+			return pos
+		}
+		pos += v.segments[i].len()
+	}
+	panic("broken invariant")
+}
+
+func (v *BytecodeVisitor) populatePointers() {
+	for i := range v.segments {
+		if v.segments[i].isPointer() {
+			pos := v.getPosition(v.segments[i].pointer)
+			v.segments[i].pointTo(pos)
+		}
+	}
+}
+
 func (v *BytecodeVisitor) String() string {
+	v.populatePointers()
+
 	var b strings.Builder
 	for i := range v.segments {
-		b.WriteString(v.segments[i])
+		b.WriteString(v.segments[i].getCode())
 	}
+
 	return b.String()
 }
 
@@ -126,7 +255,13 @@ func (v *BytecodeVisitor) visitVariadicOp(fn string, args []Node) {
 	case "-":
 		op = SUB
 	case "/":
-		op = DIV // TODO: SDIV
+		op = DIV
+	case "<":
+		op = LT
+	case ">":
+		op = GT
+	case "=":
+		op = EQ
 	case "&":
 		fallthrough
 	case "logand":
@@ -147,6 +282,6 @@ func (v *BytecodeVisitor) visitVariadicOp(fn string, args []Node) {
 	args[last].Accept(v)
 	for i := last - 1; i >= 0; i-- {
 		args[i].Accept(v)
-		v.pushOp(op)
+		v.addOp(op)
 	}
 }

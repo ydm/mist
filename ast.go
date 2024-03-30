@@ -22,9 +22,18 @@ func Visit(v Visitor, node Node) {
 	node.Accept(v)
 }
 
-func VisitSequence(v Visitor, nodes []Node) {
-	for _, node := range nodes {
-		Visit(v, node)
+func VisitSequence(v Visitor, nodes []Node, dir int) {
+	switch dir {
+	case -1:
+		for i := len(nodes) - 1; i >= 0; i-- {
+			Visit(v, nodes[i])
+		}
+	case 1:
+		for i := range nodes {
+			Visit(v, nodes[i])
+		}
+	default:
+		panic("invalid direction")
 	}
 }
 
@@ -86,10 +95,6 @@ func (n *Node) AddChild(child Node) {
 
 	n.Children = append(n.Children, child)
 }
-
-// +------------+
-// | Predicates |
-// +------------+
 
 func (n *Node) IsAtom() bool {
 	return n.Type != TypeList
