@@ -2,8 +2,9 @@ package mist
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
+
+	"github.com/holiman/uint256"
 )
 
 const (
@@ -26,9 +27,9 @@ func NewBytecodeVisitor() BytecodeVisitor {
 
 	// Initialize the free memory pointer.  Mist follows the same
 	// memory layout as Solidity.
-	v.pushUnsigned(freeMemory)
-	v.pushUnsigned(freeMemoryPtr)
-	v.pushOp(MSTORE)
+	// v.pushU64(freeMemory)
+	// v.pushU64(freeMemoryPtr)
+	// v.pushOp(MSTORE)
 
 	return v
 }
@@ -47,10 +48,14 @@ func (v *BytecodeVisitor) pushSegment(code string) {
 	v.segments = append(v.segments, code)
 }
 
-func (v *BytecodeVisitor) pushUnsigned(x uint64) {
-	hex := strconv.FormatUint(x, 16)
+func (v *BytecodeVisitor) pushU64(x uint64) {
+	v.pushU256(uint256.NewInt(x))
+}
 
-	length := len(hex)/2 + len(hex)%2
+func (v *BytecodeVisitor) pushU256(x *uint256.Int) {
+	hex := x.Hex()
+
+	length := len(hex)/2 - 1 + len(hex)%2
 	if length < 1 || 32 < length {
 		panic("TODO")
 	}
@@ -62,11 +67,7 @@ func (v *BytecodeVisitor) pushUnsigned(x uint64) {
 	if len(hex)%2 == 1 {
 		padding = "0"
 	}
-	v.pushSegment(fmt.Sprintf(
-		"%s%s",
-		padding,
-		hex,
-	))
+	v.pushSegment(fmt.Sprintf("%s%s", padding, hex[2:]))
 }
 
 func (v *BytecodeVisitor) codeLength() int {
@@ -97,8 +98,8 @@ func (v *BytecodeVisitor) VisitFunction(fn string, args []Node) {
 func (v *BytecodeVisitor) VisitSymbol(_ string) {
 }
 
-func (v *BytecodeVisitor) VisitUint256(literal uint64) {
-	v.pushUnsigned(literal)
+func (v *BytecodeVisitor) VisitNumber(x *uint256.Int) {
+	v.pushU256(x)
 }
 
 func (v *BytecodeVisitor) String() string {

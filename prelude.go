@@ -226,20 +226,20 @@ func fnProgn(v *BytecodeVisitor, args []Node) {
 func fnReturn(v *BytecodeVisitor, args []Node) {
 	assertArgsEq("return", args, 1)
 
-	v.pushUnsigned(0x20)          // [20]
-	v.pushUnsigned(freeMemoryPtr) // [FP 20]
-	v.pushOp(MLOAD)               // [FM 20]
-	args[0].Accept(v)             // [RV FM 20]
-	v.pushOp(DUP2)                // [FM RV FM 20]
-	v.pushOp(MSTORE)              // [FM 20]
-	v.pushOp(RETURN)              // []
+	v.pushU64(0x20)          // [20]
+	v.pushU64(freeMemoryPtr) // [FP 20]
+	v.pushOp(MLOAD)          // [FM 20]
+	args[0].Accept(v)        // [RV FM 20]
+	v.pushOp(DUP2)           // [FM RV FM 20]
+	v.pushOp(MSTORE)         // [FM 20]
+	v.pushOp(RETURN)         // []
 	v.pushOp(INVALID)
 }
 
 func fnRevert(v *BytecodeVisitor, args []Node) {
 	assertArgsEq("revert", args, 0)
 
-	zero := NewNodeUint256(0)
+	zero := NewNodeU64(0)
 	zero.Accept(v)
 
 	v.pushOp(DUP1)
@@ -350,13 +350,13 @@ func isPreludeFunc(tok string) (PreludeFunction, bool) {
 func MakeConstructor(deployedBytecode string) string {
 	v := NewBytecodeVisitor()
 
-	length := uint64(len(deployedBytecode) / 2)
-	v.pushUnsigned(length)
+	length := len(deployedBytecode) / 2
+	v.pushU64(uint64(length))
 	v.pushOp(DUP1)
 	pointer := v.pushPointer()
-	v.pushUnsigned(0)
+	v.pushU64(0)
 	v.pushOp(CODECOPY)
-	v.pushUnsigned(0)
+	v.pushU64(0)
 	v.pushOp(RETURN)
 	v.pushOp(INVALID)
 

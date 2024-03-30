@@ -1,8 +1,10 @@
 package mist
 
 import (
-	"strconv"
+	"fmt"
 	"strings"
+
+	"github.com/holiman/uint256"
 )
 
 func consume(iterator *TokenIterator, tokens ...string) {
@@ -38,17 +40,14 @@ func parseAtom(tokens *TokenIterator) Node {
 	next := consumeNot(tokens, "(", ")")
 
 	if strings.HasPrefix(next, "0x") {
-		// TODO: Parse uint256
-		parsed, err := strconv.ParseUint(next[2:], 16, 64)
-		if err != nil {
-			panic(err) // TODO
+		if parsed, err := uint256.FromHex(next); err == nil {
+			return NewNodeU256(parsed)
 		}
-		return NewNodeUint256(parsed)
+		panic(fmt.Sprintf("failed to parse a hex literal: %s", next))
 	}
 
-	parsed, err := strconv.ParseUint(next, 10, 64)
-	if err == nil {
-		return NewNodeUint256(parsed)
+	if parsed, err := uint256.FromDecimal(next); err == nil {
+		return NewNodeU256(parsed)
 	}
 
 	return NewNodeSymbol(next)

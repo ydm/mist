@@ -2,8 +2,9 @@ package mist
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
+
+	"github.com/holiman/uint256"
 )
 
 // +---------+
@@ -11,7 +12,7 @@ import (
 // +---------+
 
 type Visitor interface {
-	VisitUint256(literal uint64)
+	VisitNumber(value *uint256.Int)
 	VisitSymbol(symbol string)
 
 	VisitFunction(name string, args []Node)
@@ -38,36 +39,40 @@ const (
 type Node struct {
 	Type int
 
-	ValueString  string
-	ValueUint256 uint64 // TODO
+	ValueString string
+	ValueNumber *uint256.Int
 
 	Children []Node
 }
 
-func NewNodeUint256(literal uint64) Node {
+func NewNodeU256(x *uint256.Int) Node {
 	return Node{
-		Type:         TypeUint256,
-		ValueString:  "",
-		ValueUint256: literal,
-		Children:     nil,
+		Type:        TypeUint256,
+		ValueString: "",
+		ValueNumber: x,
+		Children:    nil,
 	}
+}
+
+func NewNodeU64(x uint64) Node {
+	return NewNodeU256(uint256.NewInt(x))
 }
 
 func NewNodeSymbol(symbol string) Node {
 	return Node{
-		Type:         TypeSymbol,
-		ValueString:  symbol,
-		ValueUint256: 0,
-		Children:     nil,
+		Type:        TypeSymbol,
+		ValueString: symbol,
+		ValueNumber: nil,
+		Children:    nil,
 	}
 }
 
 func NewNodeList() Node {
 	return Node{
-		Type:         TypeList,
-		ValueString:  "",
-		ValueUint256: 0,
-		Children:     make([]Node, 0, 4),
+		Type:        TypeList,
+		ValueString: "",
+		ValueNumber: nil,
+		Children:    make([]Node, 0, 4),
 	}
 }
 
@@ -145,7 +150,7 @@ func (n *Node) Accept(v Visitor) {
 	case TypeSymbol:
 		v.VisitSymbol(n.ValueString)
 	case TypeUint256:
-		v.VisitUint256(n.ValueUint256)
+		v.VisitNumber(n.ValueNumber)
 	}
 }
 
@@ -160,7 +165,7 @@ func (n *Node) String() string {
 	case TypeSymbol:
 		return n.ValueString
 	case TypeUint256:
-		return strconv.FormatUint(n.ValueUint256, 10)
+		return n.ValueNumber.Dec()
 	default:
 		panic("TODO")
 	}
