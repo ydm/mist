@@ -2,10 +2,6 @@ package mist
 
 import "fmt"
 
-// +-----------+
-// | Utilities |
-// +-----------+
-
 func assertArgsEq(fn string, args []Node, want int) {
 	if have := len(args); have != want {
 		panic(fmt.Sprintf(
@@ -239,14 +235,16 @@ func handleInlineFunc(v *BytecodeVisitor, fn string, args []Node) bool {
 	case "when":
 		fnWhen(v, args)
 		return true
+	case "setq":
+		return true
 	default:
 		return false
 	}
 }
 
-// +-------------------+
-// | Prelude functions |
-// +-------------------+
+// +------------------+
+// | Inline functions |
+// +------------------+
 
 func fnAddmod(v *BytecodeVisitor, args []Node) {
 	assertArgsEq("+%", args, 3)
@@ -370,10 +368,3 @@ func MakeConstructor(deployedBytecode string) string {
 	return v.String()
 }
 
-// +-------------+
-// | Environment |
-// +-------------+
-
-type Environment struct {
-	// constants map[string]string
-}

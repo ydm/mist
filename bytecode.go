@@ -13,6 +13,22 @@ const (
 	freeMemoryStart = 0x80
 )
 
+// +-------------+
+// | Environment |
+// +-------------+
+
+type environment struct {
+	// constants map[string]Node
+	functions map[string]Node
+	variables map[string]Node
+}
+
+// func fset(e *environment, fn string, args
+
+func (e *environment) setq(name string, value Node) {
+	e.variables[name] = value
+}
+
 // +---------+
 // | segment |
 // +---------+
