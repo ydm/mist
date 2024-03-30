@@ -1,7 +1,6 @@
 package mist
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/holiman/uint256"
@@ -43,7 +42,7 @@ func parseAtom(tokens *TokenIterator) Node {
 		if parsed, err := uint256.FromHex(next); err == nil {
 			return NewNodeU256(parsed)
 		}
-		panic(fmt.Sprintf("failed to parse a hex literal: %s", next))
+		panic("failed to parse a hex literal: " + next)
 	}
 
 	if parsed, err := uint256.FromDecimal(next); err == nil {

@@ -17,7 +17,7 @@ const (
 // | segment |
 // +---------+
 
-var _segmentID int32 = 0
+var _segmentID int32 //nolint:gochecknoglobals
 
 func makeSegmentID() int32 {
 	return atomic.AddInt32(&_segmentID, 1)
@@ -86,10 +86,9 @@ func (s *segment) len() int {
 	if s.isPointer() {
 		// The length of this segment is 3 bytes: (PUSH2 AA BB).
 		return 3
-	} else {
-		// Each byte needs 2 hexadecimal characters.
-		return len(s.code) / 2
 	}
+	// Each byte needs 2 hexadecimal characters.
+	return len(s.code) / 2
 }
 
 // +-----------------+
@@ -114,39 +113,24 @@ func NewBytecodeVisitor() BytecodeVisitor {
 	return v
 }
 
-// codeLength return the number of bytes.
-func (v *BytecodeVisitor) codeLength() int {
-	ans := 0
-	for i := range v.segments {
-		ans += v.segments[i].len()
-	}
-	return ans
-}
-
 // +---------+
 // | Add fns |
 // +---------+
 
-func (v *BytecodeVisitor) addSegment(s segment) *segment {
-	index := len(v.segments)
+func (v *BytecodeVisitor) addSegment(s segment) {
 	v.segments = append(v.segments, s)
-	return &v.segments[index]
 }
 
 func (v *BytecodeVisitor) addCode(code string) {
 	v.addSegment(newSegmentCode(code))
 }
 
-func (v *BytecodeVisitor) addJumpdest() int32 {
-	return v.addSegment(newSegmentJumpdest()).id
-}
-
 func (v *BytecodeVisitor) addOp(op OpCode) {
 	v.addSegment(newSegmentOpCode(op))
 }
 
-func (v *BytecodeVisitor) addPointer(dest int32) *segment {
-	return v.addSegment(newSegmentPointer(dest))
+func (v *BytecodeVisitor) addPointer(dest int32) {
+	v.addSegment(newSegmentPointer(dest))
 }
 
 func (v *BytecodeVisitor) addU256(x *uint256.Int) {
@@ -161,6 +145,7 @@ func (v *BytecodeVisitor) addU256(x *uint256.Int) {
 	v.addCode(code)
 }
 
+//nolint:unused
 func (v *BytecodeVisitor) addU64(x uint64) {
 	v.addU256(uint256.NewInt(x))
 }
@@ -190,6 +175,7 @@ func (v *BytecodeVisitor) VisitList() {
 }
 
 func (v *BytecodeVisitor) VisitFunction(fn string, args []Node) {
+	//nolint:gocritic,revive
 	if handleNativeFunc(v, fn, args) {
 		// noop
 	} else if handleVariadicFunc(v, fn, args) {
@@ -237,51 +223,4 @@ func (v *BytecodeVisitor) String() string {
 	}
 
 	return b.String()
-}
-
-// +---------+
-// | Private |
-// +---------+
-
-func (v *BytecodeVisitor) visitVariadicOp(fn string, args []Node) {
-	assertArgsGte(fn, args, 2)
-
-	var op OpCode
-	switch fn {
-	case "+":
-		op = ADD
-	case "*":
-		op = MUL
-	case "-":
-		op = SUB
-	case "/":
-		op = DIV
-	case "<":
-		op = LT
-	case ">":
-		op = GT
-	case "=":
-		op = EQ
-	case "&":
-		fallthrough
-	case "logand":
-		op = AND
-	case "|":
-		fallthrough
-	case "logior":
-		op = OR
-	case "^":
-		fallthrough
-	case "logxor":
-		op = XOR
-	default:
-		panic("unrecognized arithmetic op: " + fn)
-	}
-
-	last := len(args) - 1
-	args[last].Accept(v)
-	for i := last - 1; i >= 0; i-- {
-		args[i].Accept(v)
-		v.addOp(op)
-	}
 }

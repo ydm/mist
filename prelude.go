@@ -32,7 +32,7 @@ func handleNativeFunc(v *BytecodeVisitor, fn string, args []Node) bool {
 	var (
 		op    OpCode
 		nargs int
-		dir   int = 0
+		dir   = 0
 	)
 
 	switch fn {
@@ -150,6 +150,7 @@ func handleNativeFunc(v *BytecodeVisitor, fn string, args []Node) bool {
 	// case REVERT
 	// case INVALID
 	// case SELFDESTRUCT
+	default:
 	}
 
 	if dir != 0 {
@@ -162,8 +163,10 @@ func handleNativeFunc(v *BytecodeVisitor, fn string, args []Node) bool {
 }
 
 func handleVariadicFunc(v *BytecodeVisitor, fn string, args []Node) bool {
-	var op OpCode
-	var match = false
+	var (
+		op    OpCode
+		match = false
+	)
 
 	switch fn {
 	case "+":
@@ -208,7 +211,6 @@ func handleVariadicFunc(v *BytecodeVisitor, fn string, args []Node) bool {
 }
 
 func handleInlineFunc(v *BytecodeVisitor, fn string, args []Node) bool {
-
 	switch fn {
 	case "%":
 		// (% x y) returns x%y, the remainder of x divided by y
