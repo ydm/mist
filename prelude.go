@@ -242,6 +242,15 @@ func handleInlineFunc(v *BytecodeVisitor, fn string, args []Node) bool {
 	}
 }
 
+func handleEnvFunc(v *BytecodeVisitor, fn string, args []Node) bool {
+	switch fn {
+	case "setq":
+		return true
+	default:
+		return false
+	}
+}
+
 // +------------------+
 // | Inline functions |
 // +------------------+
@@ -367,4 +376,3 @@ func MakeConstructor(deployedBytecode string) string {
 
 	return v.String()
 }
-
