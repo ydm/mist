@@ -57,36 +57,41 @@ type Node struct {
 	ValueNumber *uint256.Int
 
 	Children []Node
+
+	Origin Origin
 }
 
-func NewNodeU256(x *uint256.Int) Node {
+func NewNodeU256(x *uint256.Int, origin Origin) Node {
 	return Node{
 		Type:        TypeNumber,
 		ValueString: "",
 		ValueNumber: x,
 		Children:    nil,
+		Origin:      origin,
 	}
 }
 
-func NewNodeU64(x uint64) Node {
-	return NewNodeU256(uint256.NewInt(x))
+func NewNodeU64(x uint64, origin Origin) Node {
+	return NewNodeU256(uint256.NewInt(x), origin)
 }
 
-func NewNodeSymbol(symbol string) Node {
+func NewNodeSymbol(symbol string, origin Origin) Node {
 	return Node{
 		Type:        TypeSymbol,
 		ValueString: symbol,
 		ValueNumber: nil,
 		Children:    nil,
+		Origin:      origin,
 	}
 }
 
-func NewNodeList() Node {
+func NewNodeList(origin Origin) Node {
 	return Node{
 		Type:        TypeList,
 		ValueString: "",
 		ValueNumber: nil,
 		Children:    make([]Node, 0, 4),
+		Origin:      origin,
 	}
 }
 

@@ -2,7 +2,7 @@ package mist
 
 import "fmt"
 
-func consume(tokens *TokenIterator, types ...int) {
+func consume(tokens *TokenIterator, types ...int) Token {
 	if !tokens.HasNext() {
 		panic("TODO")
 	}
@@ -11,8 +11,7 @@ func consume(tokens *TokenIterator, types ...int) {
 
 	for _, tokenType := range types {
 		if next.Type == tokenType {
-			tokens.Next()
-			return
+			return tokens.Next()
 		}
 	}
 
@@ -45,20 +44,22 @@ func parseAtom(tokens *TokenIterator) Node {
 	case TokenQuote:
 		panic("TODO")
 	case TokenNumber:
-		return NewNodeU256(next.ValueNumber)
+		return NewNodeU256(next.ValueNumber, next.Origin)
 	case TokenString:
 		panic("TODO")
 	case TokenSymbol:
-		return NewNodeSymbol(next.ValueString)
+		return NewNodeSymbol(next.ValueString, next.Origin)
 	default:
 		panic("TODO")
 	}
 }
 
 func parseList(tokens *TokenIterator) Node {
-	root := NewNodeList()
-	consume(tokens, TokenLeftParen)
-	
+	left := consume(tokens, TokenLeftParen)
+	defer consume(tokens, TokenRightParen)
+
+	root := NewNodeList(left.Origin)
+
 	for tokens.HasNext() {
 		next := tokens.Peek()
 		if next.Type == TokenLeftParen {
@@ -71,7 +72,6 @@ func parseList(tokens *TokenIterator) Node {
 		}
 	}
 
-	consume(tokens, TokenRightParen)
 	return root
 }
 
@@ -85,8 +85,8 @@ func parse(tokens *TokenIterator) Node {
 			panic("unbalanced parentheses")
 		case TokenQuote:
 			tokens.Next()
-			quote := NewNodeList()
-			quote.AddChild(NewNodeSymbol("quote"))
+			quote := NewNodeList(next.Origin)
+			quote.AddChild(NewNodeSymbol("quote", next.Origin))
 			quote.AddChild(parse(tokens))
 			return quote
 		case TokenNumber:
@@ -102,8 +102,8 @@ func parse(tokens *TokenIterator) Node {
 }
 
 func Parse(tokens *TokenIterator) Node {
-	progn := NewNodeList()
-	progn.AddChild(NewNodeSymbol("progn"))
+	progn := NewNodeList(NewOriginEmpty())
+	progn.AddChild(NewNodeSymbol("progn", NewOriginEmpty()))
 
 	for tokens.HasNext() {
 		progn.AddChild(parse(tokens))
