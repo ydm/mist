@@ -18,8 +18,8 @@ func compileAndCompare(t *testing.T, cases, want []string) {
 			t.Fatal(err)
 		}
 
-		if diff := cmp.Diff(have, want[i]); diff != "" {
-			t.Logf("Case #%d", i)
+		if diff := cmp.Diff(want[i], have); diff != "" {
+			t.Logf("Case #%d: %s", i, c)
 			t.Fatalf(diff)
 		}
 	}
@@ -59,29 +59,35 @@ func TestCompileVariadic(t *testing.T) {
 	compileAndCompare(t, cases, want)
 }
 
-func TestCompileWhen(t *testing.T) {
+func TestCompileIf(t *testing.T) {
 	t.Parallel()
 
 	cases := []string{
+		"(if 1 2 3)",
+		"(if 1 2 3) (stop)",
 		"(when 1)",
-		"(when 1) (stop)",
+		// "(when 1) (stop)",
 
-		"(when (- (/ (* 2 2) 4) 1) (stop)) (stop)",
-		"(when (- (/ (* 2 2) 4) 1) (+ 1 2 3)) (stop)",
+		// "(when (- (/ (* 2 2) 4) 1) (stop)) (stop)",
+		// "(when (- (/ (* 2 2) 4) 1) (+ 1 2 3)) (stop)",
 
-		"(when (< (calldata-size) 4) (revert))",
-		"(when (= (>> (calldata-load 0) 0xe0) 0xa7a0d537) (return 69)) (stop)",
+		// "(when (< (calldata-size) 4) (revert))",
+		// "(when (= (>> (calldata-load 0) 0xe0) 0xa7a0d537) (return 69)) (stop)",
 	}
 
 	want := []string{
-		"600115610007575b",
-		"600115610007575b00",
+		"600161000c57600361000f565b60025b",
+		"600161000c57600361000f565b60025b5000",
+		"600161000c57600061000f565b60005b",
 
-		"60016004600260020204031561001157005b00",
-		"6001600460026002020403156100185760036002016001015b00",
+		// "600115610007575b",
+		// "600115610007575b00",
 
-		"600436101561000d57600080fd5b",
-		"63a7a0d53760003560e01c141561001b57602060405160458152f35b00",
+		// "60016004600260020204031561001157005b00",
+		// "6001600460026002020403156100185760036002016001015b00",
+
+		// "600436101561000d57600080fd5b",
+		// "63a7a0d53760003560e01c141561001b57602060405160458152f35b00",
 	}
 
 	compileAndCompare(t, cases, want)

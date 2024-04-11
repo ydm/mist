@@ -12,25 +12,22 @@ import (
 // +---------+
 
 type Visitor interface {
+	VisitNil()
 	VisitNumber(value *uint256.Int)
 	VisitSymbol(symbol string)
 
 	VisitFunction(name string, args []Node)
 }
 
-func Visit(v Visitor, node Node) {
-	node.Accept(v)
-}
-
 func VisitSequence(v Visitor, nodes []Node, dir int) {
 	switch dir {
 	case -1:
 		for i := len(nodes) - 1; i >= 0; i-- {
-			Visit(v, nodes[i])
+			nodes[i].Accept(v)
 		}
 	case 1:
 		for i := range nodes {
-			Visit(v, nodes[i])
+			nodes[i].Accept(v)
 		}
 	default:
 		panic("invalid direction")
@@ -95,6 +92,16 @@ func NewNodeList(origin Origin) Node {
 	}
 }
 
+func NewNodeNil(origin Origin) Node {
+	return NewNodeSymbol("nil", origin)
+}
+
+func NewNodeProgn(origin Origin) Node {
+	progn := NewNodeList(NewOriginEmpty())
+	progn.AddChild(NewNodeSymbol("progn", NewOriginEmpty()))
+	return progn
+}
+
 func (n *Node) AddChild(child Node) {
 	if n.IsAtom() {
 		panic("TODO")
@@ -103,8 +110,54 @@ func (n *Node) AddChild(child Node) {
 	n.Children = append(n.Children, child)
 }
 
+func (n *Node) AddChildren(children []Node) {
+	for i := range children {
+		n.AddChild(children[i])
+	}
+}
+
 func (n *Node) IsAtom() bool {
-	return n.Type != TypeList
+	return !n.IsList()
+}
+
+func (n *Node) IsEmptyList() bool {
+	return n.IsList() && n.NumChildren() == 0
+}
+
+func (n *Node) IsFunction(name string) bool {
+	return (n.IsList() &&
+		n.NumChildren() > 1 &&
+		n.Children[0].IsSymbol() &&
+		n.Children[0].ValueString == name)
+}
+
+func (n *Node) IsList() bool {
+	return n.Type == TypeList
+}
+
+func (n *Node) IsNil() bool {
+	switch n.Type {
+	case TypeList:
+		return n.IsEmptyList() || (n.NumChildren() == 1 && n.Children[0].IsQuote())
+	case TypeSymbol:
+		return n.ValueString == "nil"
+	case TypeNumber:
+		return false
+	default:
+		return false
+	}
+}
+
+func (n *Node) IsQuote() bool {
+	return n.IsSymbol() && n.ValueString == "quote"
+}
+
+func (n *Node) IsSymbol() bool {
+	return n.Type == TypeSymbol
+}
+
+func (n *Node) NumChildren() int {
+	return len(n.Children)
 }
 
 // +---------+
@@ -112,22 +165,26 @@ func (n *Node) IsAtom() bool {
 // +---------+
 
 func (n *Node) Accept(v Visitor) {
+	if n.IsNil() {
+		v.VisitNil()
+		return
+	}
+
 	switch n.Type {
-	case TypeList:
-		if len(n.Children) < 1 {
-			// TODO: I should support (empty) arrays too...
-			panic("TODO")
-		}
-
-		if n.Children[0].Type != TypeSymbol {
-			panic("TODO")
-		}
-
-		v.VisitFunction(n.Children[0].ValueString, n.Children[1:])
-	case TypeSymbol:
-		v.VisitSymbol(n.ValueString)
 	case TypeNumber:
 		v.VisitNumber(n.ValueNumber)
+	case TypeSymbol:
+		v.VisitSymbol(n.ValueString)
+	case TypeList:
+		if n.NumChildren() < 1 {
+			// TODO: I should support (empty) arrays too!
+			panic("TODO")
+		} else if !n.Children[0].IsSymbol() {
+			panic("TODO")
+		} else {
+			fn, args := n.Children[0].ValueString, n.Children[1:]
+			v.VisitFunction(fn, args)
+		}
 	}
 }
 

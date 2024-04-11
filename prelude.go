@@ -2,7 +2,7 @@ package mist
 
 import "fmt"
 
-func assertArgsEq(fn string, args []Node, want int) {
+func assertNumArgsEq(fn string, args []Node, want int) {
 	if have := len(args); have != want {
 		panic(fmt.Sprintf(
 			"wrong number of arguments for (%s): have %d, want %d",
@@ -152,7 +152,7 @@ func handleNativeFunc(v *BytecodeVisitor, fn string, args []Node) bool {
 	}
 
 	if dir != 0 {
-		assertArgsEq(fn, args, nargs)
+		assertNumArgsEq(fn, args, nargs)
 		VisitSequence(v, args, dir)
 		v.addOp(op)
 		return true
@@ -222,14 +222,24 @@ func handleInlineFunc(v *BytecodeVisitor, fn string, args []Node) bool {
 		// (*% x y m) returns (x*y)%m
 		fnMulmod(v, args)
 		return true
+	case "discard":
+		fnDiscard(v, args)
+		return true
+	case "if":
+		fnIf(v, args)
+		return true
 	case "progn":
 		fnProgn(v, args)
 		return true
 	case "return":
+		// (return value)
 		fnReturn(v, args)
 		return true
 	case "revert":
+		// (revert value)
 		fnRevert(v, args)
+		return true
+	case "setq":
 		return true
 	case "unless":
 		fnUnless(v, args)
@@ -237,17 +247,7 @@ func handleInlineFunc(v *BytecodeVisitor, fn string, args []Node) bool {
 	case "when":
 		fnWhen(v, args)
 		return true
-	case "setq":
-		return true
-	default:
-		return false
-	}
-}
 
-func handleEnvFunc(v *BytecodeVisitor, fn string, args []Node) bool {
-	switch fn {
-	case "setq":
-		return true
 	default:
 		return false
 	}
@@ -258,7 +258,7 @@ func handleEnvFunc(v *BytecodeVisitor, fn string, args []Node) bool {
 // +------------------+
 
 func fnAddmod(v *BytecodeVisitor, args []Node) {
-	assertArgsEq("+%", args, 3)
+	assertNumArgsEq("+%", args, 3)
 
 	x, y, m := args[0], args[1], args[2]
 	m.Accept(v)
@@ -267,8 +267,15 @@ func fnAddmod(v *BytecodeVisitor, args []Node) {
 	v.addOp(ADDMOD)
 }
 
+func fnDiscard(v *BytecodeVisitor, args []Node) {
+	assertNumArgsEq("discard", args, 1)
+
+	args[0].Accept(v)
+	v.addOp(POP)
+}
+
 func fnMod(v *BytecodeVisitor, args []Node) {
-	assertArgsEq("%", args, 2)
+	assertNumArgsEq("%", args, 2)
 
 	x, y := args[0], args[1]
 	y.Accept(v)
@@ -277,7 +284,7 @@ func fnMod(v *BytecodeVisitor, args []Node) {
 }
 
 func fnMulmod(v *BytecodeVisitor, args []Node) {
-	assertArgsEq("*%", args, 3)
+	assertNumArgsEq("*%", args, 3)
 
 	x, y, m := args[0], args[1], args[2]
 	m.Accept(v)
@@ -287,11 +294,17 @@ func fnMulmod(v *BytecodeVisitor, args []Node) {
 }
 
 func fnProgn(v *BytecodeVisitor, args []Node) {
-	VisitSequence(v, args, 1)
+	for i := range args {
+		last := i == len(args)-1
+		args[i].Accept(v)
+		if !last {
+			v.addOp(POP)
+		}
+	}
 }
 
 func fnReturn(v *BytecodeVisitor, args []Node) {
-	assertArgsEq("return", args, 1)
+	assertNumArgsEq("return", args, 1)
 
 	v.pushU64(0x20)              // [20]
 	v.pushU64(freeMemoryPointer) // [FP 20]
@@ -303,61 +316,88 @@ func fnReturn(v *BytecodeVisitor, args []Node) {
 }
 
 func fnRevert(v *BytecodeVisitor, args []Node) {
-	assertArgsEq("revert", args, 0)
+	assertNumArgsEq("revert", args, 1)
 
-	v.pushU64(0)
-	v.addOp(DUP1)
-	v.addOp(REVERT)
+	v.pushU64(0x20)              // [20]
+	v.pushU64(freeMemoryPointer) // [FP 20]
+	v.addOp(MLOAD)               // [FM 20]
+	args[0].Accept(v)            // [RV FM 20]
+	v.addOp(DUP2)                // [FM RV FM 20]
+	v.addOp(MSTORE)              // [FM 20]
+	v.addOp(REVERT)              // []
 }
 
 func fnUnless(v *BytecodeVisitor, args []Node) {
-	assertArgsGte("when", args, 1)
+	assertArgsGte("unless", args, 1)
 
+	// Prepare condition.
 	cond := args[0]
-	body := args[1:]
 
-	// Push condition onto stack.
+	// Prepare the `then` branch.
+	body := args[1:]
+	yes := NewNodeList(NewOriginEmpty())
+	if len(args) > 0 {
+		yes.Origin = args[0].Origin
+	}
+	yes.AddChildren(body)
+
+	// Prepare the `else` branch.
+	no := NewNodeNil(NewOriginEmpty())
+
+	fnIf(v, []Node{cond, yes, no})
+}
+
+func fnIf(v *BytecodeVisitor, args []Node) {
+	assertNumArgsEq("if", args, 3)
+	cond, yes, no := args[0], args[1], args[2]
+
+	// Push the condition.
 	cond.Accept(v)
 
-	// Push a pointer and jump.
-	jumpdest := newSegmentJumpdest()
-	v.addPointer(jumpdest.id)
+	// Jump to the `then` branch if condition holds.
+	dest := newSegmentJumpdest()
+	v.addPointer(dest.id)
 	v.addOp(JUMPI)
 
-	// Now push the body.
-	VisitSequence(v, body, 1)
+	// Otherwise, keep executing the `else` and jump after the `then`
+	// at the end.
+	no.Accept(v)
+	after := newSegmentJumpdest()
+	v.addPointer(after.id)
+	v.addOp(JUMP)
 
-	// Finally, add a JUMPDEST.
-	v.addSegment(jumpdest)
+	// Now add the `then`.
+	v.addSegment(dest)
+	yes.Accept(v)
+
+	// Add the `after` label.
+	v.addSegment(after)
 }
 
 func fnWhen(v *BytecodeVisitor, args []Node) {
 	assertArgsGte("when", args, 1)
 
+	// Prepare condition.
 	cond := args[0]
+
+	// Prepare the `then` branch.
 	body := args[1:]
+	yes := NewNodeNil(NewOriginEmpty())
 
-	// Push condition onto stack.
-	cond.Accept(v)
+	if len(body) > 0 {
+		yes = NewNodeProgn(args[0].Origin)
+		yes.AddChildren(body)
+	}
 
-	// Invert the condition.
-	v.addOp(ISZERO)
+	// Prepare the `else` branch.
+	no := NewNodeNil(NewOriginEmpty())
 
-	// Push a pointer and jump.
-	jumpdest := newSegmentJumpdest()
-	v.addPointer(jumpdest.id)
-	v.addOp(JUMPI)
-
-	// Now push the body.
-	VisitSequence(v, body, 1)
-
-	// Finally, add a JUMPDEST.
-	v.addSegment(jumpdest)
+	fnIf(v, []Node{cond, yes, no})
 }
 
-// +-------------+
-// | Constructor |
-// +-------------+
+// +----------------------+
+// | Contract constructor |
+// +----------------------+
 
 func MakeConstructor(deployedBytecode string) string {
 	v := NewBytecodeVisitor()

@@ -187,6 +187,17 @@ func (v *BytecodeVisitor) pushU64(x uint64) {
 	v.pushU256(uint256.NewInt(x))
 }
 
+func (v *BytecodeVisitor) VisitNil() {
+	v.pushU64(0)
+}
+
+func (v *BytecodeVisitor) VisitNumber(x *uint256.Int) {
+	v.pushU256(x)
+}
+
+func (v *BytecodeVisitor) VisitSymbol(_ string) {
+}
+
 func (v *BytecodeVisitor) VisitList() {
 }
 
@@ -201,13 +212,6 @@ func (v *BytecodeVisitor) VisitFunction(fn string, args []Node) {
 	} else {
 		panic("unrecognized function: " + fn)
 	}
-}
-
-func (v *BytecodeVisitor) VisitSymbol(_ string) {
-}
-
-func (v *BytecodeVisitor) VisitNumber(x *uint256.Int) {
-	v.pushU256(x)
 }
 
 func (v *BytecodeVisitor) getPosition(id int32) int {
