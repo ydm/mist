@@ -2,16 +2,17 @@ package mist
 
 // import "fmt"
 
-func Compile(program, source string) (string, error) {
+func Compile(program, source string, init bool) (string, error) {
 	tokens, err := Scan(program, source)
 	if err != nil {
 		return "", err
 	}
 
-	progn := Parse(&tokens)
+	visitor := NewBytecodeVisitor(init)
+	global := NewGlobalScope()
 
-	visitor := NewBytecodeVisitor(true)
-	progn.Accept(&visitor)
+	progn := Parse(&tokens)
+	progn.Accept(&visitor, global)
 
 	return visitor.String(), nil
 }

@@ -24,7 +24,7 @@ func assertArgsGte(fn string, args []Node, want int) {
 	}
 }
 
-func handleNativeFunc(v *BytecodeVisitor, fn string, args []Node) bool {
+func handleNativeFunc(v *BytecodeVisitor, s *Scope, fn string, args []Node) bool {
 	var (
 		op    OpCode
 		nargs int
@@ -153,14 +153,14 @@ func handleNativeFunc(v *BytecodeVisitor, fn string, args []Node) bool {
 
 	if dir != 0 {
 		assertNumArgsEq(fn, args, nargs)
-		VisitSequence(v, args, dir)
+		VisitSequence(v, s, args, dir)
 		v.addOp(op)
 		return true
 	}
 	return false
 }
 
-func handleVariadicFunc(v *BytecodeVisitor, fn string, args []Node) bool {
+func handleVariadicFunc(v *BytecodeVisitor, s *Scope, fn string, args []Node) bool {
 	var (
 		op    OpCode
 		match = false
@@ -198,9 +198,9 @@ func handleVariadicFunc(v *BytecodeVisitor, fn string, args []Node) bool {
 	if match {
 		assertArgsGte(fn, args, 2)
 		last := len(args) - 1
-		args[last].Accept(v)
+		args[last].Accept(v, s)
 		for i := last - 1; i >= 0; i-- {
-			args[i].Accept(v)
+			args[i].Accept(v, s)
 			v.addOp(op)
 		}
 		return true
@@ -208,44 +208,44 @@ func handleVariadicFunc(v *BytecodeVisitor, fn string, args []Node) bool {
 	return false
 }
 
-func handleInlineFunc(v *BytecodeVisitor, fn string, args []Node) bool {
+func handleInlineFunc(v *BytecodeVisitor, s *Scope, fn string, args []Node) bool {
 	switch fn {
 	case "%":
 		// (% x y) returns x%y, the remainder of x divided by y
-		fnMod(v, args)
+		fnMod(v, s, args)
 		return true
 	case "+%":
 		// (+% x y m) returns (x+y)%m
-		fnAddmod(v, args)
+		fnAddmod(v, s, args)
 		return true
 	case "*%":
 		// (*% x y m) returns (x*y)%m
-		fnMulmod(v, args)
+		fnMulmod(v, s, args)
 		return true
 	case "discard":
-		fnDiscard(v, args)
+		fnDiscard(v, s, args)
 		return true
 	case "if":
-		fnIf(v, args)
+		fnIf(v, s, args)
 		return true
 	case "progn":
-		fnProgn(v, args)
+		fnProgn(v, s, args)
 		return true
 	case "return":
 		// (return value)
-		fnReturn(v, args)
+		fnReturn(v, s, args)
 		return true
 	case "revert":
 		// (revert value)
-		fnRevert(v, args)
+		fnRevert(v, s, args)
 		return true
 	case "setq":
 		return true
 	case "unless":
-		fnUnless(v, args)
+		fnUnless(v, s, args)
 		return true
 	case "when":
-		fnWhen(v, args)
+		fnWhen(v, s, args)
 		return true
 
 	default:
@@ -257,77 +257,77 @@ func handleInlineFunc(v *BytecodeVisitor, fn string, args []Node) bool {
 // | Inline functions |
 // +------------------+
 
-func fnAddmod(v *BytecodeVisitor, args []Node) {
+func fnAddmod(v *BytecodeVisitor, s *Scope, args []Node) {
 	assertNumArgsEq("+%", args, 3)
 
 	x, y, m := args[0], args[1], args[2]
-	m.Accept(v)
-	y.Accept(v)
-	x.Accept(v)
+	m.Accept(v, s)
+	y.Accept(v, s)
+	x.Accept(v, s)
 	v.addOp(ADDMOD)
 }
 
-func fnDiscard(v *BytecodeVisitor, args []Node) {
+func fnDiscard(v *BytecodeVisitor, s *Scope, args []Node) {
 	assertNumArgsEq("discard", args, 1)
 
-	args[0].Accept(v)
+	args[0].Accept(v, s)
 	v.addOp(POP)
 }
 
-func fnMod(v *BytecodeVisitor, args []Node) {
+func fnMod(v *BytecodeVisitor, s *Scope, args []Node) {
 	assertNumArgsEq("%", args, 2)
 
 	x, y := args[0], args[1]
-	y.Accept(v)
-	x.Accept(v)
+	y.Accept(v, s)
+	x.Accept(v, s)
 	v.addOp(MOD)
 }
 
-func fnMulmod(v *BytecodeVisitor, args []Node) {
+func fnMulmod(v *BytecodeVisitor, s *Scope, args []Node) {
 	assertNumArgsEq("*%", args, 3)
 
 	x, y, m := args[0], args[1], args[2]
-	m.Accept(v)
-	y.Accept(v)
-	x.Accept(v)
+	m.Accept(v, s)
+	y.Accept(v, s)
+	x.Accept(v, s)
 	v.addOp(ADDMOD)
 }
 
-func fnProgn(v *BytecodeVisitor, args []Node) {
+func fnProgn(v *BytecodeVisitor, s *Scope, args []Node) {
 	for i := range args {
 		last := i == len(args)-1
-		args[i].Accept(v)
+		args[i].Accept(v, s)
 		if !last {
 			v.addOp(POP)
 		}
 	}
 }
 
-func fnReturn(v *BytecodeVisitor, args []Node) {
+func fnReturn(v *BytecodeVisitor, s *Scope, args []Node) {
 	assertNumArgsEq("return", args, 1)
 
 	v.pushU64(0x20)              // [20]
 	v.pushU64(freeMemoryPointer) // [FP 20]
 	v.addOp(MLOAD)               // [FM 20]
-	args[0].Accept(v)            // [RV FM 20]
+	args[0].Accept(v, s)            // [RV FM 20]
 	v.addOp(DUP2)                // [FM RV FM 20]
 	v.addOp(MSTORE)              // [FM 20]
 	v.addOp(RETURN)              // []
 }
 
-func fnRevert(v *BytecodeVisitor, args []Node) {
+func fnRevert(v *BytecodeVisitor, s *Scope, args []Node) {
 	assertNumArgsEq("revert", args, 1)
 
 	v.pushU64(0x20)              // [20]
 	v.pushU64(freeMemoryPointer) // [FP 20]
 	v.addOp(MLOAD)               // [FM 20]
-	args[0].Accept(v)            // [RV FM 20]
+	args[0].Accept(v, s)            // [RV FM 20]
 	v.addOp(DUP2)                // [FM RV FM 20]
 	v.addOp(MSTORE)              // [FM 20]
 	v.addOp(REVERT)              // []
 }
 
-func fnUnless(v *BytecodeVisitor, args []Node) {
+func fnUnless(v *BytecodeVisitor, s *Scope, args []Node) {
 	assertArgsGte("unless", args, 1)
 
 	// Prepare condition.
@@ -344,15 +344,15 @@ func fnUnless(v *BytecodeVisitor, args []Node) {
 	// Prepare the `else` branch.
 	no := NewNodeNil(NewOriginEmpty())
 
-	fnIf(v, []Node{cond, yes, no})
+	fnIf(v, s, []Node{cond, yes, no})
 }
 
-func fnIf(v *BytecodeVisitor, args []Node) {
+func fnIf(v *BytecodeVisitor, s *Scope, args []Node) {
 	assertNumArgsEq("if", args, 3)
 	cond, yes, no := args[0], args[1], args[2]
 
 	// Push the condition.
-	cond.Accept(v)
+	cond.Accept(v, s)
 
 	// Jump to the `then` branch if condition holds.
 	dest := newSegmentJumpdest()
@@ -361,26 +361,26 @@ func fnIf(v *BytecodeVisitor, args []Node) {
 
 	// Otherwise, keep executing the `else` and jump after the `then`
 	// at the end.
-	no.Accept(v)
+	no.Accept(v, s)
 	after := newSegmentJumpdest()
 	v.addPointer(after.id)
 	v.addOp(JUMP)
 
 	// Now add the `then`.
 	v.addSegment(dest)
-	yes.Accept(v)
+	yes.Accept(v, s)
 
 	// Add the `after` label.
 	v.addSegment(after)
 }
 
-func fnWhen(v *BytecodeVisitor, args []Node) {
+func fnWhen(v *BytecodeVisitor, s *Scope, args []Node) {
 	assertArgsGte("when", args, 1)
 
 	// Prepare condition.
 	cond := args[0]
 
-	// Prepare the `then` branch.
+	// Prepare the `then` branch by wrapping it in a `progn`.
 	body := args[1:]
 	yes := NewNodeNil(NewOriginEmpty())
 
@@ -392,7 +392,7 @@ func fnWhen(v *BytecodeVisitor, args []Node) {
 	// Prepare the `else` branch.
 	no := NewNodeNil(NewOriginEmpty())
 
-	fnIf(v, []Node{cond, yes, no})
+	fnIf(v, s, []Node{cond, yes, no})
 }
 
 // +----------------------+

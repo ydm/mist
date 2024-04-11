@@ -13,7 +13,7 @@ func compileAndCompare(t *testing.T, cases, want []string) {
 	t.Helper()
 
 	for i, c := range cases {
-		have, err := mist.Compile(c, fmt.Sprintf("case%d", i))
+		have, err := mist.Compile(c, fmt.Sprintf("case%d", i), false)
 		if err != nil {
 			t.Fatal(err)
 		}

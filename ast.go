@@ -16,20 +16,20 @@ type Visitor interface {
 	VisitT()
 
 	VisitNumber(value *uint256.Int)
-	VisitSymbol(symbol string)
+	VisitSymbol(s *Scope, symbol string)
 
-	VisitFunction(name string, args []Node)
+	VisitFunction(s *Scope, name string, args []Node)
 }
 
-func VisitSequence(v Visitor, nodes []Node, dir int) {
+func VisitSequence(v Visitor, s *Scope, nodes []Node, dir int) {
 	switch dir {
 	case -1:
 		for i := len(nodes) - 1; i >= 0; i-- {
-			nodes[i].Accept(v)
+			nodes[i].Accept(v, s)
 		}
 	case 1:
 		for i := range nodes {
-			nodes[i].Accept(v)
+			nodes[i].Accept(v, s)
 		}
 	default:
 		panic("invalid direction")
@@ -122,6 +122,10 @@ func (n *Node) IsAtom() bool {
 	return !n.IsList()
 }
 
+func (n *Node) IsConstant() bool {
+	return n.Type == TypeNumber || n.Type == TypeSymbol
+}
+
 func (n *Node) IsEmptyList() bool {
 	return n.IsList() && n.NumChildren() == 0
 }
@@ -170,7 +174,7 @@ func (n *Node) NumChildren() int {
 // | Visitor |
 // +---------+
 
-func (n *Node) Accept(v Visitor) {
+func (n *Node) Accept(v Visitor, s *Scope) {
 	if n.IsNil() {
 		v.VisitNil()
 		return
@@ -182,7 +186,7 @@ func (n *Node) Accept(v Visitor) {
 	case TypeNumber:
 		v.VisitNumber(n.ValueNumber)
 	case TypeSymbol:
-		v.VisitSymbol(n.ValueString)
+		v.VisitSymbol(s, n.ValueString)
 	case TypeList:
 		if n.NumChildren() < 1 {
 			// TODO: I should support (empty) arrays too!
@@ -191,7 +195,7 @@ func (n *Node) Accept(v Visitor) {
 			panic("TODO")
 		} else {
 			fn, args := n.Children[0].ValueString, n.Children[1:]
-			v.VisitFunction(fn, args)
+			v.VisitFunction(s, fn, args)
 		}
 	}
 }

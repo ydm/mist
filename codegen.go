@@ -13,22 +13,6 @@ const (
 	freeMemoryInitial = 0x80
 )
 
-// +-------------+
-// | Environment |
-// +-------------+
-
-type environment struct {
-	// constants map[string]Node
-	functions map[string]Node
-	variables map[string]Node
-}
-
-// func fset(e *environment, fn string, args
-
-func (e *environment) setq(name string, value Node) {
-	e.variables[name] = value
-}
-
 // +---------+
 // | segment |
 // +---------+
@@ -201,19 +185,16 @@ func (v *BytecodeVisitor) VisitNumber(x *uint256.Int) {
 	v.pushU256(x)
 }
 
-func (v *BytecodeVisitor) VisitSymbol(_ string) {
+func (v *BytecodeVisitor) VisitSymbol(s *Scope, symbol string) {
 }
 
-func (v *BytecodeVisitor) VisitList() {
-}
-
-func (v *BytecodeVisitor) VisitFunction(fn string, args []Node) {
+func (v *BytecodeVisitor) VisitFunction(s *Scope, fn string, args []Node) {
 	//nolint:gocritic,revive
-	if handleNativeFunc(v, fn, args) {
+	if handleNativeFunc(v, s, fn, args) {
 		// noop
-	} else if handleVariadicFunc(v, fn, args) {
+	} else if handleVariadicFunc(v, s, fn, args) {
 		// noop
-	} else if handleInlineFunc(v, fn, args) {
+	} else if handleInlineFunc(v, s, fn, args) {
 		// noop
 	} else {
 		panic("unrecognized function: " + fn)
