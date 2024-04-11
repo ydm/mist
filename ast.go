@@ -13,6 +13,8 @@ import (
 
 type Visitor interface {
 	VisitNil()
+	VisitT()
+
 	VisitNumber(value *uint256.Int)
 	VisitSymbol(symbol string)
 
@@ -156,6 +158,10 @@ func (n *Node) IsSymbol() bool {
 	return n.Type == TypeSymbol
 }
 
+func (n *Node) IsT() bool {
+	return n.IsSymbol() && n.ValueString == "t"
+}
+
 func (n *Node) NumChildren() int {
 	return len(n.Children)
 }
@@ -168,6 +174,8 @@ func (n *Node) Accept(v Visitor) {
 	if n.IsNil() {
 		v.VisitNil()
 		return
+	} else if n.IsT() {
+		v.VisitT()
 	}
 
 	switch n.Type {

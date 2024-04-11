@@ -1,6 +1,11 @@
 ;; Functions are not payable.
 (when (call-value)
-  (revert))
+  (revert 1))
+
+(when nil
+  (return 123))
+
+(return (if nil 2 3))
 
 ;; (gas-limit)
 ;; (gas-limit)

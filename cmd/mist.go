@@ -10,12 +10,14 @@ import (
 )
 
 func main() {
-	// stream, err := os.Open("examples/something.mist")
+	// source := "examples/something.mist"
+	// stream, err := os.Open(source)
 	// if err != nil {
 	// 	panic(err)
 	// }
 	// inp, err := io.ReadAll(stream)
 
+	source := "stdin"
 	inp, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		panic(err)
@@ -26,30 +28,13 @@ func main() {
 		panic("TODO")
 	}
 
-	// Tokenize.
-	tokens, err := mist.Scan(decoded, "stdin")
+	// Decorate with a contract constructor.
+	code, err := mist.Compile(decoded, source)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
-	// for tokens.HasNext() {
-	// 	fmt.Println(tokens.Next())
-	// }
-	// return
-
-	// Parse.
-	progn := mist.Parse(&tokens)
-	fmt.Println(&progn)
-
-	return
-
-	// Compile.
-	v := mist.NewBytecodeVisitor()
-	progn.Accept(&v)
-
-	// Decorate with a contract constructor.
-	code := v.String()
 	ctor := mist.MakeConstructor(code)
 	fmt.Print("0x" + ctor + code)
 

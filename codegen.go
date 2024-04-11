@@ -115,16 +115,18 @@ type BytecodeVisitor struct {
 	segments []segment
 }
 
-func NewBytecodeVisitor() BytecodeVisitor {
+func NewBytecodeVisitor(init bool) BytecodeVisitor {
 	v := BytecodeVisitor{
 		segments: make([]segment, 0, 1024),
 	}
 
-	// // Initialize the free memory pointer.  Mist follows the same
-	// // memory layout as Solidity.
-	// v.pushU64(freeMemoryInitial)
-	// v.pushU64(freeMemoryPointer)
-	// v.addOp(MSTORE)
+	if init {
+		// Initialize the free memory pointer.  Mist follows the same
+		// memory layout as Solidity.
+		v.pushU64(freeMemoryInitial)
+		v.pushU64(freeMemoryPointer)
+		v.addOp(MSTORE)
+	}
 
 	return v
 }
@@ -189,6 +191,10 @@ func (v *BytecodeVisitor) pushU64(x uint64) {
 
 func (v *BytecodeVisitor) VisitNil() {
 	v.pushU64(0)
+}
+
+func (v *BytecodeVisitor) VisitT() {
+	v.pushU64(1)
 }
 
 func (v *BytecodeVisitor) VisitNumber(x *uint256.Int) {

@@ -400,7 +400,7 @@ func fnWhen(v *BytecodeVisitor, args []Node) {
 // +----------------------+
 
 func MakeConstructor(deployedBytecode string) string {
-	v := NewBytecodeVisitor()
+	v := NewBytecodeVisitor(false)
 
 	label := newEmptySegment()
 

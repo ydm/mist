@@ -10,7 +10,7 @@ func Compile(program, source string) (string, error) {
 
 	progn := Parse(&tokens)
 
-	visitor := NewBytecodeVisitor()
+	visitor := NewBytecodeVisitor(true)
 	progn.Accept(&visitor)
 
 	return visitor.String(), nil
