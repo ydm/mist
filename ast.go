@@ -106,7 +106,7 @@ func NewNodeProgn(origin Origin) Node {
 
 func (n *Node) AddChild(child Node) {
 	if n.IsAtom() {
-		panic("TODO")
+		panic(fmt.Sprintf("%v: atom %s cannot have children", n.Origin, n.String()))
 	}
 
 	n.Children = append(n.Children, child)
@@ -180,6 +180,7 @@ func (n *Node) Accept(v Visitor, s *Scope) {
 		return
 	} else if n.IsT() {
 		v.VisitT()
+		return
 	}
 
 	switch n.Type {
@@ -192,7 +193,7 @@ func (n *Node) Accept(v Visitor, s *Scope) {
 			// TODO: I should support (empty) arrays too!
 			panic("TODO")
 		} else if !n.Children[0].IsSymbol() {
-			panic("TODO")
+			panic(fmt.Sprintf("%v: %s is not a symbol", n.Children[0].Origin, n.Children[0].String()))
 		} else {
 			fn, args := n.Children[0].ValueString, n.Children[1:]
 			v.VisitFunction(s, fn, args)

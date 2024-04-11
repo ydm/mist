@@ -1,11 +1,16 @@
 ;; Functions are not payable.
-(when (call-value)
-  (revert 1))
 
-(when nil
-  (return 123))
+;; (when (call-value)
+;;   (revert 1))
 
-(return (if nil 2 3))
+(defconst *qwe* nil)
+(defconst *yes* 0x20)
+(defconst *no* 0x30)
+
+(unless t
+  (revert 123))
+
+(return (if *qwe* *yes* *no*))
 
 ;; (gas-limit)
 ;; (gas-limit)

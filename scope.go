@@ -28,18 +28,38 @@ func NewGlobalScope() *Scope {
 	return NewScope(nil)
 }
 
-func (e *Scope) NewChildScope() *Scope {
-	return NewScope(e)
+func (s *Scope) NewChildScope() *Scope {
+	return NewScope(s)
 }
 
-func (e *Scope) Defconst(name string, value Node) {
+// +---------+
+// | Getters |
+// +---------+
+
+func (s *Scope) GetConstant(name string) (Node, bool) {
+	node, ok := s.Constants[name]
+	if !ok && s.Parent != nil {
+		return s.Parent.GetConstant(name)
+	}
+	return node, ok
+}
+
+// +---------+
+// | Setters |
+// +---------+
+
+func (s *Scope) Defconst(name string, value Node) {
 	if !value.IsConstant() {
-		panic(fmt.Sprintf("%v: not constant: %v", value.Origin, value))
+		panic(fmt.Sprintf("%v: %v is not constant", value.Origin, value))
 	}
 
-	e.Constants[name] = value
+	if _, ok := s.GetConstant(name); ok {
+		panic(fmt.Sprintf("%v: constant %s already defined", value.Origin, name))
+	}
+
+	s.Constants[name] = value
 }
 
-func (e *Scope) Setq(name string, value Node) {
-	e.Variables[name] = value
+func (s *Scope) Setq(name string, value Node) {
+	s.Variables[name] = value
 }

@@ -99,8 +99,8 @@ type BytecodeVisitor struct {
 	segments []segment
 }
 
-func NewBytecodeVisitor(init bool) BytecodeVisitor {
-	v := BytecodeVisitor{
+func NewBytecodeVisitor(init bool) *BytecodeVisitor {
+	v := &BytecodeVisitor{
 		segments: make([]segment, 0, 1024),
 	}
 
@@ -186,6 +186,11 @@ func (v *BytecodeVisitor) VisitNumber(x *uint256.Int) {
 }
 
 func (v *BytecodeVisitor) VisitSymbol(s *Scope, symbol string) {
+	value, ok := s.GetConstant(symbol)
+	if !ok {
+		panic(fmt.Sprintf("void variable %s", symbol))
+	}
+	value.Accept(v, s)
 }
 
 func (v *BytecodeVisitor) VisitFunction(s *Scope, fn string, args []Node) {

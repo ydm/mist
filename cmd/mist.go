@@ -29,7 +29,7 @@ func main() {
 	}
 
 	// Decorate with a contract constructor.
-	code, err := mist.Compile(decoded, source)
+	code, err := mist.Compile(decoded, source, true)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

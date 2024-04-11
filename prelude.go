@@ -222,6 +222,9 @@ func handleInlineFunc(v *BytecodeVisitor, s *Scope, fn string, args []Node) bool
 		// (*% x y m) returns (x*y)%m
 		fnMulmod(v, s, args)
 		return true
+	case "defconst":
+		fnDefconst(v, s, args)
+		return true
 	case "discard":
 		fnDiscard(v, s, args)
 		return true
@@ -265,6 +268,22 @@ func fnAddmod(v *BytecodeVisitor, s *Scope, args []Node) {
 	y.Accept(v, s)
 	x.Accept(v, s)
 	v.addOp(ADDMOD)
+}
+
+func fnDefconst(v *BytecodeVisitor, s *Scope, args []Node) {
+	assertNumArgsEq("defconst", args, 2)
+
+	name, value := args[0], args[1]
+
+	if !name.IsSymbol() {
+		panic(fmt.Sprintf("%v: %v is not a symbol", value.Origin, value))
+	}
+
+	// Store into scope.
+	s.Defconst(args[0].ValueString, args[1])
+
+	// All expressions have a value.
+	args[1].Accept(v, s)
 }
 
 func fnDiscard(v *BytecodeVisitor, s *Scope, args []Node) {
@@ -332,19 +351,20 @@ func fnUnless(v *BytecodeVisitor, s *Scope, args []Node) {
 
 	// Prepare condition.
 	cond := args[0]
-
-	// Prepare the `then` branch.
+	
+	// Prepare the `then` branch by wrapping it in a `progn`.
 	body := args[1:]
-	yes := NewNodeList(NewOriginEmpty())
-	if len(args) > 0 {
-		yes.Origin = args[0].Origin
+	then := NewNodeNil(NewOriginEmpty())
+
+	if len(body) > 0 {
+		then = NewNodeProgn(args[0].Origin)
+		then.AddChildren(body)
 	}
-	yes.AddChildren(body)
 
 	// Prepare the `else` branch.
-	no := NewNodeNil(NewOriginEmpty())
+	noop := NewNodeNil(NewOriginEmpty())
 
-	fnIf(v, s, []Node{cond, yes, no})
+	fnIf(v, s, []Node{cond, noop, then})
 }
 
 func fnIf(v *BytecodeVisitor, s *Scope, args []Node) {
@@ -382,17 +402,17 @@ func fnWhen(v *BytecodeVisitor, s *Scope, args []Node) {
 
 	// Prepare the `then` branch by wrapping it in a `progn`.
 	body := args[1:]
-	yes := NewNodeNil(NewOriginEmpty())
+	then := NewNodeNil(NewOriginEmpty())
 
 	if len(body) > 0 {
-		yes = NewNodeProgn(args[0].Origin)
-		yes.AddChildren(body)
+		then = NewNodeProgn(args[0].Origin)
+		then.AddChildren(body)
 	}
 
 	// Prepare the `else` branch.
-	no := NewNodeNil(NewOriginEmpty())
+	noop := NewNodeNil(NewOriginEmpty())
 
-	fnIf(v, s, []Node{cond, yes, no})
+	fnIf(v, s, []Node{cond, then, noop})
 }
 
 // +----------------------+

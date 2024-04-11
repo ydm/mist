@@ -102,8 +102,7 @@ func parse(tokens *TokenIterator) Node {
 }
 
 func Parse(tokens *TokenIterator) Node {
-	progn := NewNodeList(NewOriginEmpty())
-	progn.AddChild(NewNodeSymbol("progn", NewOriginEmpty()))
+	progn := NewNodeProgn(NewOriginEmpty())
 
 	for tokens.HasNext() {
 		progn.AddChild(parse(tokens))

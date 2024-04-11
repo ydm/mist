@@ -25,6 +25,22 @@ func compileAndCompare(t *testing.T, cases, want []string) {
 	}
 }
 
+func TestCompileDefconst(t *testing.T) {
+	t.Parallel()
+
+	cases := []string{
+		"(defconst +x+ 123)",
+		"(defconst +x+ 123) +x+",
+	}
+
+	want := []string{
+		"607b",
+		"607b50607b",
+	}
+
+	compileAndCompare(t, cases, want)
+}
+
 func TestCompileVariadic(t *testing.T) {
 	t.Parallel()
 

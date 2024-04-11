@@ -12,7 +12,7 @@ func Compile(program, source string, init bool) (string, error) {
 	global := NewGlobalScope()
 
 	progn := Parse(&tokens)
-	progn.Accept(&visitor, global)
+	progn.Accept(visitor, global)
 
 	return visitor.String(), nil
 }
