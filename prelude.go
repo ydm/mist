@@ -33,7 +33,7 @@ func handleNativeFunc(v *BytecodeVisitor, fn string, args []Node) bool {
 
 	switch fn {
 	case "stop":
-		op, nargs, dir = STOP, 0, 1
+		op, nargs, dir = STOP, 0, -1
 	// ADD is variadic.
 	// MUL is variadic.
 	// SUB is variadic.
@@ -59,16 +59,16 @@ func handleNativeFunc(v *BytecodeVisitor, fn string, args []Node) bool {
 	case "not":
 		fallthrough
 	case "zerop":
-		op, nargs, dir = ISZERO, 1, 1
+		op, nargs, dir = ISZERO, 1, -1
 	// AND (logand, &) is variadic.
 	// OR (logior, |) is variadic.
 	// XOR (logxor, ^) is variadic.
 	case "~":
 		fallthrough
 	case "lognot":
-		op, nargs, dir = NOT, 1, 1
-	case "byte": // (byte word byte-index)
-		op, nargs, dir = BYTE, 2, 1
+		op, nargs, dir = NOT, 1, -1
+	case "byte": // (byte byte-index word)
+		op, nargs, dir = BYTE, 2, -1
 	case "<<": // (<< value count)
 		op, nargs, dir = SHL, 2, 1
 	case ">>": // (>> value count)
@@ -76,27 +76,27 @@ func handleNativeFunc(v *BytecodeVisitor, fn string, args []Node) bool {
 	// SAR is NOT implemented.
 	// KECCAK256 is NOT implemented.
 	case "address":
-		op, nargs, dir = ADDRESS, 0, 1
+		op, nargs, dir = ADDRESS, 0, -1
 	case "balance":
-		op, nargs, dir = BALANCE, 1, 1
+		op, nargs, dir = BALANCE, 1, -1
 	case "origin":
-		op, nargs, dir = ORIGIN, 0, 1
+		op, nargs, dir = ORIGIN, 0, -1
 	case "caller":
-		op, nargs, dir = CALLER, 0, 1
+		op, nargs, dir = CALLER, 0, -1
 	case "call-value":
-		op, nargs, dir = CALLVALUE, 0, 1
+		op, nargs, dir = CALLVALUE, 0, -1
 	case "calldata-load": // (calldata-load word-index)
-		op, nargs, dir = CALLDATALOAD, 1, 1
+		op, nargs, dir = CALLDATALOAD, 1, -1
 	case "calldata-size":
-		op, nargs, dir = CALLDATASIZE, 0, 1
-	case "calldata-copy": // (calldata-copy length id-offset mm-start)
-		op, nargs, dir = CALLDATACOPY, 3, 1
+		op, nargs, dir = CALLDATASIZE, 0, -1
+	// case "calldata-copy": // (calldata-copy mm-start id-offset length)
+	// 	op, nargs, dir = CALLDATACOPY, 3, -1
 	case "code-size":
-		op, nargs, dir = CODESIZE, 0, 1
-	case "code-copy":
-		op, nargs, dir = CODECOPY, 3, 1
+		op, nargs, dir = CODESIZE, 0, -1
+	// case "code-copy": // (code-copy mm-start ib-offset length)
+	// 	op, nargs, dir = CODECOPY, 3, -1
 	case "gas-price":
-		op, nargs, dir = GASPRICE, 0, 1
+		op, nargs, dir = GASPRICE, 0, -1
 	// EXTCODESIZE is NOT implemented.
 	// EXTCODECOPY is NOT implemented.
 	// RETURNDATASIZE is NOT implemented.
@@ -104,21 +104,21 @@ func handleNativeFunc(v *BytecodeVisitor, fn string, args []Node) bool {
 	// EXTCODEHASH is NOT implemented.
 	// BLOCKHASH is NOT implemented.
 	case "coinbase":
-		op, nargs, dir = COINBASE, 0, 1
+		op, nargs, dir = COINBASE, 0, -1
 	case "timestamp":
-		op, nargs, dir = TIMESTAMP, 0, 1
+		op, nargs, dir = TIMESTAMP, 0, -1
 	case "block-number":
-		op, nargs, dir = NUMBER, 0, 1
+		op, nargs, dir = NUMBER, 0, -1
 	case "prev-randao":
-		op, nargs, dir = PREVRANDAO, 0, 1
+		op, nargs, dir = PREVRANDAO, 0, -1
 	case "gas-limit":
-		op, nargs, dir = GASLIMIT, 0, 1
+		op, nargs, dir = GASLIMIT, 0, -1
 	case "chain-id":
-		op, nargs, dir = CHAINID, 0, 1
+		op, nargs, dir = CHAINID, 0, -1
 	case "self-balance":
-		op, nargs, dir = SELFBALANCE, 0, 1
+		op, nargs, dir = SELFBALANCE, 0, -1
 	case "base-fee":
-		op, nargs, dir = BASEFEE, 0, 1
+		op, nargs, dir = BASEFEE, 0, -1
 	// case "pop"
 	// case "mload"
 	// case "mstore"
@@ -127,10 +127,12 @@ func handleNativeFunc(v *BytecodeVisitor, fn string, args []Node) bool {
 	// case "sstore"
 	// case "jump"
 	// case "jumpi"
-	// case "pc"
-	// case "msize"
+	case "program-counter":
+		op, nargs, dir = PC, 0, -1
+	case "memory-size":
+		op, nargs, dir = MSIZE, 0, -1
 	case "available-gas":
-		op, nargs, dir = GAS, 0, 1
+		op, nargs, dir = GAS, 0, -1
 	// case "jumpdest"
 	// case "push1..16"
 	// case "dup1..16"
@@ -291,14 +293,13 @@ func fnProgn(v *BytecodeVisitor, args []Node) {
 func fnReturn(v *BytecodeVisitor, args []Node) {
 	assertArgsEq("return", args, 1)
 
-	v.pushU64(0x20)          // [20]
-	v.pushU64(freeMemoryPtr) // [FP 20]
-	v.addOp(MLOAD)           // [FM 20]
-	args[0].Accept(v)        // [RV FM 20]
-	v.addOp(DUP2)            // [FM RV FM 20]
-	v.addOp(MSTORE)          // [FM 20]
-	v.addOp(RETURN)          // []
-	v.addOp(INVALID)
+	v.pushU64(0x20)              // [20]
+	v.pushU64(freeMemoryPointer) // [FP 20]
+	v.addOp(MLOAD)               // [FM 20]
+	args[0].Accept(v)            // [RV FM 20]
+	v.addOp(DUP2)                // [FM RV FM 20]
+	v.addOp(MSTORE)              // [FM 20]
+	v.addOp(RETURN)              // []
 }
 
 func fnRevert(v *BytecodeVisitor, args []Node) {
@@ -363,14 +364,18 @@ func MakeConstructor(deployedBytecode string) string {
 
 	label := newEmptySegment()
 
+	// (codecopy mm-offset@0 ib-offset@1 length@2)
+	// has the following effect
+	// M[mm-offset:+length] = Ib[ib-offset:+length]
+
 	length := len(deployedBytecode) / 2
-	v.pushU64(uint64(length))
-	v.addOp(DUP1)
-	v.addPointer(label.id)
-	v.pushU64(0)
-	v.addOp(CODECOPY)
-	v.pushU64(0)
-	v.addOp(RETURN)
+	v.pushU64(uint64(length)) // L
+	v.addOp(DUP1)             // L L
+	v.addPointer(label.id)    // P L L
+	v.pushU64(0)              // 0 P L L
+	v.addOp(CODECOPY)         // (codecopy 0 P L)
+	v.pushU64(0)              // 0 L
+	v.addOp(RETURN)           // return M[0:L]
 	v.addOp(INVALID)
 	v.addSegment(label)
 

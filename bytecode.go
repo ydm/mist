@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	freeMemoryPtr   = 0x40
-	freeMemoryStart = 0x80
+	freeMemoryPointer = 0x40
+	freeMemoryInitial = 0x80
 )
 
 // +-------------+
@@ -120,11 +120,11 @@ func NewBytecodeVisitor() BytecodeVisitor {
 		segments: make([]segment, 0, 1024),
 	}
 
-	// Initialize the free memory pointer.  Mist follows the same
-	// memory layout as Solidity.
-	// v.pushU64(freeMemory)
-	// v.pushU64(freeMemoryPtr)
-	// v.pushOp(MSTORE)
+	// // Initialize the free memory pointer.  Mist follows the same
+	// // memory layout as Solidity.
+	// v.pushU64(freeMemoryInitial)
+	// v.pushU64(freeMemoryPointer)
+	// v.addOp(MSTORE)
 
 	return v
 }

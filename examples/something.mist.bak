@@ -1,6 +1,6 @@
-;; Functions are not payable.
-(when (call-value)
-  (revert))
+qwe
+;; (defun f (x)
+;;   (* 2 x))
 
 ;; (gas-limit)
 ;; (gas-limit)

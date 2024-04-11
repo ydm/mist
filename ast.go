@@ -46,6 +46,8 @@ const (
 
 	TypeSymbol
 	TypeNumber
+
+	// string, function, primitive, macro
 )
 
 type Node struct {
@@ -108,7 +110,7 @@ func (n *Node) Accept(v Visitor) {
 	switch n.Type {
 	case TypeList:
 		if len(n.Children) < 1 {
-			// TODO: I should support arrays too...
+			// TODO: I should support (empty) arrays too...
 			panic("TODO")
 		}
 
