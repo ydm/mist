@@ -8,33 +8,6 @@ import (
 	"github.com/holiman/uint256"
 )
 
-// +--------+
-// | Errors |
-// +--------+
-
-type LexicalError struct {
-	Origin  Origin
-	Message string
-	Token   string
-}
-
-func NewLexicalError(filename string, line, column int, message, token string) error {
-	return &LexicalError{
-		NewOrigin(filename, line, column),
-		message,
-		token,
-	}
-}
-
-func (e *LexicalError) Error() string {
-	end := ""
-	if e.Token != "" {
-		end = ": " + e.Token
-	}
-
-	return fmt.Sprintf("%v: error: %s%s", e.Origin, e.Message, end)
-}
-
 // +-------+
 // | Token |
 // +-------+
@@ -173,7 +146,7 @@ func Scan(code string, filename string) (TokenIterator, error) {
 
 	// Context variables.
 	comment := false
-	line := 1 // Lines start from 1.start
+	line := 1 // Lines start from 1.
 	offset := 0
 
 	for index, r := range code {

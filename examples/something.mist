@@ -1,3 +1,5 @@
+(defun f (a b) (+ a b))
+
 ;; Functions are not payable.
 
 ;; (when (call-value)

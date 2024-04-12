@@ -185,24 +185,24 @@ func (v *BytecodeVisitor) VisitNumber(x *uint256.Int) {
 	v.pushU256(x)
 }
 
-func (v *BytecodeVisitor) VisitSymbol(s *Scope, symbol string) {
-	value, ok := s.GetConstant(symbol)
+func (v *BytecodeVisitor) VisitSymbol(s *Scope, symbol Node) {
+	value, ok := s.GetConstant(symbol.ValueString)
 	if !ok {
-		panic(fmt.Sprintf("void variable %s", symbol))
+		panic(fmt.Sprintf("%v: void variable %s", symbol.Origin, symbol.ValueString))
 	}
 	value.Accept(v, s)
 }
 
-func (v *BytecodeVisitor) VisitFunction(s *Scope, fn string, args []Node) {
+func (v *BytecodeVisitor) VisitFunction(s *Scope, node Node) {
 	//nolint:gocritic,revive
-	if handleNativeFunc(v, s, fn, args) {
+	if handleNativeFunc(v, s, node) {
 		// noop
-	} else if handleVariadicFunc(v, s, fn, args) {
+	} else if handleVariadicFunc(v, s, node) {
 		// noop
-	} else if handleInlineFunc(v, s, fn, args) {
+	} else if handleInlineFunc(v, s, node) {
 		// noop
 	} else {
-		panic("unrecognized function: " + fn)
+		panic("unrecognized function call: " + node.String())
 	}
 }
 

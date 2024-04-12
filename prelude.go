@@ -24,7 +24,9 @@ func assertArgsGte(fn string, args []Node, want int) {
 	}
 }
 
-func handleNativeFunc(v *BytecodeVisitor, s *Scope, fn string, args []Node) bool {
+func handleNativeFunc(v *BytecodeVisitor, s *Scope, node Node) bool {
+	fn, args := node.Children[0].ValueString, node.Children[1:]
+
 	var (
 		op    OpCode
 		nargs int
@@ -160,7 +162,9 @@ func handleNativeFunc(v *BytecodeVisitor, s *Scope, fn string, args []Node) bool
 	return false
 }
 
-func handleVariadicFunc(v *BytecodeVisitor, s *Scope, fn string, args []Node) bool {
+func handleVariadicFunc(v *BytecodeVisitor, s *Scope, node Node) bool {
+	fn, args := node.Children[0].ValueString, node.Children[1:]
+
 	var (
 		op    OpCode
 		match = false
@@ -208,7 +212,12 @@ func handleVariadicFunc(v *BytecodeVisitor, s *Scope, fn string, args []Node) bo
 	return false
 }
 
-func handleInlineFunc(v *BytecodeVisitor, s *Scope, fn string, args []Node) bool {
+func handleInlineFunc(v *BytecodeVisitor, s *Scope, node Node) bool {
+	// TODO: All fn* should accept a node and follow the same
+	// signature!
+
+	fn, args := node.Children[0].ValueString, node.Children[1:]
+
 	switch fn {
 	case "%":
 		// (% x y) returns x%y, the remainder of x divided by y
@@ -224,6 +233,9 @@ func handleInlineFunc(v *BytecodeVisitor, s *Scope, fn string, args []Node) bool
 		return true
 	case "defconst":
 		fnDefconst(v, s, args)
+		return true
+	case "defun":
+		fnDefun(v, s, node)
 		return true
 	case "discard":
 		fnDiscard(v, s, args)
@@ -286,6 +298,16 @@ func fnDefconst(v *BytecodeVisitor, s *Scope, args []Node) {
 	args[1].Accept(v, s)
 }
 
+func fnDefun(v *BytecodeVisitor, s *Scope, node Node) {
+	fn, err := NewLispFunction(node)
+	if err != nil {
+		panic(err)
+	}
+
+	s.Defun(fn)
+	v.pushU64(0) // All expressions return (push) a value.
+}
+
 func fnDiscard(v *BytecodeVisitor, s *Scope, args []Node) {
 	assertNumArgsEq("discard", args, 1)
 
@@ -328,7 +350,7 @@ func fnReturn(v *BytecodeVisitor, s *Scope, args []Node) {
 	v.pushU64(0x20)              // [20]
 	v.pushU64(freeMemoryPointer) // [FP 20]
 	v.addOp(MLOAD)               // [FM 20]
-	args[0].Accept(v, s)            // [RV FM 20]
+	args[0].Accept(v, s)         // [RV FM 20]
 	v.addOp(DUP2)                // [FM RV FM 20]
 	v.addOp(MSTORE)              // [FM 20]
 	v.addOp(RETURN)              // []
@@ -340,7 +362,7 @@ func fnRevert(v *BytecodeVisitor, s *Scope, args []Node) {
 	v.pushU64(0x20)              // [20]
 	v.pushU64(freeMemoryPointer) // [FP 20]
 	v.addOp(MLOAD)               // [FM 20]
-	args[0].Accept(v, s)            // [RV FM 20]
+	args[0].Accept(v, s)         // [RV FM 20]
 	v.addOp(DUP2)                // [FM RV FM 20]
 	v.addOp(MSTORE)              // [FM 20]
 	v.addOp(REVERT)              // []
@@ -351,7 +373,7 @@ func fnUnless(v *BytecodeVisitor, s *Scope, args []Node) {
 
 	// Prepare condition.
 	cond := args[0]
-	
+
 	// Prepare the `then` branch by wrapping it in a `progn`.
 	body := args[1:]
 	then := NewNodeNil(NewOriginEmpty())

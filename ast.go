@@ -16,9 +16,9 @@ type Visitor interface {
 	VisitT()
 
 	VisitNumber(value *uint256.Int)
-	VisitSymbol(s *Scope, symbol string)
+	VisitSymbol(s *Scope, symbol Node)
 
-	VisitFunction(s *Scope, name string, args []Node)
+	VisitFunction(s *Scope, node Node)
 }
 
 func VisitSequence(v Visitor, s *Scope, nodes []Node, dir int) {
@@ -159,7 +159,7 @@ func (n *Node) IsQuote() bool {
 }
 
 func (n *Node) IsSymbol() bool {
-	return n.Type == TypeSymbol
+	return n.Type == TypeSymbol && n.ValueString != ""
 }
 
 func (n *Node) IsT() bool {
@@ -187,7 +187,7 @@ func (n *Node) Accept(v Visitor, s *Scope) {
 	case TypeNumber:
 		v.VisitNumber(n.ValueNumber)
 	case TypeSymbol:
-		v.VisitSymbol(s, n.ValueString)
+		v.VisitSymbol(s, *n)
 	case TypeList:
 		if n.NumChildren() < 1 {
 			// TODO: I should support (empty) arrays too!
@@ -195,8 +195,7 @@ func (n *Node) Accept(v Visitor, s *Scope) {
 		} else if !n.Children[0].IsSymbol() {
 			panic(fmt.Sprintf("%v: %s is not a symbol", n.Children[0].Origin, n.Children[0].String()))
 		} else {
-			fn, args := n.Children[0].ValueString, n.Children[1:]
-			v.VisitFunction(s, fn, args)
+			v.VisitFunction(s, *n)
 		}
 	}
 }
