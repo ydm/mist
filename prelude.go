@@ -2,7 +2,7 @@ package mist
 
 import "fmt"
 
-func assertNumArgsEq(fn string, args []Node, want int) {
+func assertNargsEq(fn string, args []Node, want int) {
 	if have := len(args); have != want {
 		panic(fmt.Sprintf(
 			"wrong number of arguments for (%s): have %d, want %d",
@@ -13,7 +13,7 @@ func assertNumArgsEq(fn string, args []Node, want int) {
 	}
 }
 
-func assertArgsGte(fn string, args []Node, want int) {
+func assertNargsGte(fn string, args []Node, want int) {
 	if have := len(args); have < want {
 		panic(fmt.Sprintf(
 			"wrong number of arguments for (%s): have %d, want at least %d",
@@ -154,7 +154,7 @@ func handleNativeFunc(v *BytecodeVisitor, s *Scope, node Node) bool {
 	}
 
 	if dir != 0 {
-		assertNumArgsEq(fn, args, nargs)
+		assertNargsEq(fn, args, nargs)
 		VisitSequence(v, s, args, dir)
 		v.addOp(op)
 		return true
@@ -200,7 +200,7 @@ func handleVariadicFunc(v *BytecodeVisitor, s *Scope, node Node) bool {
 	}
 
 	if match {
-		assertArgsGte(fn, args, 2)
+		assertNargsGte(fn, args, 2)
 		last := len(args) - 1
 		args[last].Accept(v, s)
 		for i := last - 1; i >= 0; i-- {
@@ -268,12 +268,37 @@ func handleInlineFunc(v *BytecodeVisitor, s *Scope, node Node) bool {
 	}
 }
 
+func handleDefun(v *BytecodeVisitor, s *Scope, node Node) bool {
+	name, args := node.Children[0].ValueString, node.Children[1:]
+	assertNargsGte(name, args, 1)
+
+	fn, ok := s.GetFunction(name)
+	if !ok {
+		panic(NewCompilationError(node.Origin, fmt.Sprintf("void function: %s", name)))
+	}
+
+	childScope := s.NewChildScope()
+	for i := range fn.Args {
+		identifier := fn.Args[i].ValueString
+		position := len(fn.Args) - 1 - i
+		childScope.SetStackVariable(identifier, StackVariable{
+			Origin:     fn.Args[i].Origin,
+			Identifier: identifier,
+			Position:   position,
+		})
+	}
+
+	fn.Body.Accept(v, s)
+
+	return false
+}
+
 // +------------------+
 // | Inline functions |
 // +------------------+
 
 func fnAddmod(v *BytecodeVisitor, s *Scope, args []Node) {
-	assertNumArgsEq("+%", args, 3)
+	assertNargsEq("+%", args, 3)
 
 	x, y, m := args[0], args[1], args[2]
 	m.Accept(v, s)
@@ -283,7 +308,7 @@ func fnAddmod(v *BytecodeVisitor, s *Scope, args []Node) {
 }
 
 func fnDefconst(v *BytecodeVisitor, s *Scope, args []Node) {
-	assertNumArgsEq("defconst", args, 2)
+	assertNargsEq("defconst", args, 2)
 
 	name, value := args[0], args[1]
 
@@ -309,14 +334,14 @@ func fnDefun(v *BytecodeVisitor, s *Scope, node Node) {
 }
 
 func fnDiscard(v *BytecodeVisitor, s *Scope, args []Node) {
-	assertNumArgsEq("discard", args, 1)
+	assertNargsEq("discard", args, 1)
 
 	args[0].Accept(v, s)
 	v.addOp(POP)
 }
 
 func fnMod(v *BytecodeVisitor, s *Scope, args []Node) {
-	assertNumArgsEq("%", args, 2)
+	assertNargsEq("%", args, 2)
 
 	x, y := args[0], args[1]
 	y.Accept(v, s)
@@ -325,7 +350,7 @@ func fnMod(v *BytecodeVisitor, s *Scope, args []Node) {
 }
 
 func fnMulmod(v *BytecodeVisitor, s *Scope, args []Node) {
-	assertNumArgsEq("*%", args, 3)
+	assertNargsEq("*%", args, 3)
 
 	x, y, m := args[0], args[1], args[2]
 	m.Accept(v, s)
@@ -345,7 +370,7 @@ func fnProgn(v *BytecodeVisitor, s *Scope, args []Node) {
 }
 
 func fnReturn(v *BytecodeVisitor, s *Scope, args []Node) {
-	assertNumArgsEq("return", args, 1)
+	assertNargsEq("return", args, 1)
 
 	v.pushU64(0x20)              // [20]
 	v.pushU64(freeMemoryPointer) // [FP 20]
@@ -357,7 +382,7 @@ func fnReturn(v *BytecodeVisitor, s *Scope, args []Node) {
 }
 
 func fnRevert(v *BytecodeVisitor, s *Scope, args []Node) {
-	assertNumArgsEq("revert", args, 1)
+	assertNargsEq("revert", args, 1)
 
 	v.pushU64(0x20)              // [20]
 	v.pushU64(freeMemoryPointer) // [FP 20]
@@ -369,7 +394,7 @@ func fnRevert(v *BytecodeVisitor, s *Scope, args []Node) {
 }
 
 func fnUnless(v *BytecodeVisitor, s *Scope, args []Node) {
-	assertArgsGte("unless", args, 1)
+	assertNargsGte("unless", args, 1)
 
 	// Prepare condition.
 	cond := args[0]
@@ -390,7 +415,7 @@ func fnUnless(v *BytecodeVisitor, s *Scope, args []Node) {
 }
 
 func fnIf(v *BytecodeVisitor, s *Scope, args []Node) {
-	assertNumArgsEq("if", args, 3)
+	assertNargsEq("if", args, 3)
 	cond, yes, no := args[0], args[1], args[2]
 
 	// Push the condition.
@@ -417,7 +442,7 @@ func fnIf(v *BytecodeVisitor, s *Scope, args []Node) {
 }
 
 func fnWhen(v *BytecodeVisitor, s *Scope, args []Node) {
-	assertArgsGte("when", args, 1)
+	assertNargsGte("when", args, 1)
 
 	// Prepare condition.
 	cond := args[0]

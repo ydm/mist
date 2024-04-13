@@ -6,11 +6,11 @@ import "fmt"
 // | Scope |
 // +-------+
 
-type LispFunction struct{
+type LispFunction struct {
 	Origin Origin
-	Name string
-	Args []Node
-	Body Node
+	Name   string
+	Args   []Node
+	Body   Node
 }
 
 func NewLispFunction(n Node) (empty LispFunction, _ error) {
@@ -55,25 +55,31 @@ func NewLispFunction(n Node) (empty LispFunction, _ error) {
 
 	return LispFunction{
 		Origin: n.Origin,
-		Name: identifier.ValueString,
-		Args: args,
-		Body: body,
+		Name:   identifier.ValueString,
+		Args:   args,
+		Body:   body,
 	}, nil
+}
+
+type StackVariable struct {
+	Origin     Origin
+	Identifier string
+	Position   int
 }
 
 type Scope struct {
 	Constants map[string]Node
 	Functions map[string]LispFunction
-	Variables map[string]Node
+	StackVariables map[string]StackVariable
 
 	Parent *Scope
 }
 
 func NewScope(parent *Scope) *Scope {
 	return &Scope{
-		Constants: make(map[string]Node),
-		Functions: make(map[string]LispFunction),
-		Variables: make(map[string]Node),
+		Constants:      make(map[string]Node),
+		Functions:      make(map[string]LispFunction),
+		StackVariables: make(map[string]StackVariable),
 
 		Parent: parent,
 	}
@@ -91,34 +97,54 @@ func (s *Scope) NewChildScope() *Scope {
 // | Getters |
 // +---------+
 
-func (s *Scope) GetConstant(name string) (Node, bool) {
-	node, ok := s.Constants[name]
+func (s *Scope) GetConstant(identifier string) (Node, bool) {
+	node, ok := s.Constants[identifier]
 	if !ok && s.Parent != nil {
-		return s.Parent.GetConstant(name)
+		return s.Parent.GetConstant(identifier)
 	}
 	return node, ok
+}
+
+func (s *Scope) GetFunction(identifier string) (LispFunction, bool) {
+	fn, ok := s.Functions[identifier]
+	if !ok && s.Parent != nil {
+		return s.Parent.GetFunction(identifier)
+	}
+	return fn, ok
+}
+
+func (s *Scope) GetStackVariable(identifier string) (StackVariable, bool) {
+	variable, ok := s.StackVariables[identifier]
+	if !ok && s.Parent != nil {
+		return s.Parent.GetStackVariable(identifier)
+	}
+	return variable, ok
 }
 
 // +---------+
 // | Setters |
 // +---------+
 
-func (s *Scope) Defconst(name string, value Node) {
+func (s *Scope) Defconst(identifier string, value Node) {
 	if !value.IsConstant() {
 		panic(fmt.Sprintf("%v: %v is not constant", value.Origin, value))
 	}
 
-	if _, ok := s.GetConstant(name); ok {
-		panic(fmt.Sprintf("%v: constant %s already defined", value.Origin, name))
+	if _, ok := s.GetConstant(identifier); ok {
+		panic(fmt.Sprintf("%v: constant %s already defined", value.Origin, identifier))
 	}
 
-	s.Constants[name] = value
+	s.Constants[identifier] = value
 }
 
 func (s *Scope) Defun(fn LispFunction) {
 	s.Functions[fn.Name] = fn
 }
 
-func (s *Scope) Setq(name string, value Node) {
-	s.Variables[name] = value
+func (s *Scope) SetStackVariable(identifier string, variable StackVariable) {
+	s.StackVariables[identifier] = variable
 }
+
+// func (s *Scope) Setq(name string, value Node) {
+// 	s.Variables[name] = value
+// }

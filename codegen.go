@@ -201,6 +201,8 @@ func (v *BytecodeVisitor) VisitFunction(s *Scope, node Node) {
 		// noop
 	} else if handleInlineFunc(v, s, node) {
 		// noop
+	} else if handleDefun(v, s, node) {
+		// noop
 	} else {
 		panic("unrecognized function call: " + node.String())
 	}
