@@ -30,11 +30,13 @@ func VisitSequence(v Visitor, s *Scope, esp int, nodes []Node, dir int) int {
 	case -1:
 		for i := len(nodes) - 1; i >= 0; i-- {
 			nodes[i].Accept(v, s, esp)
+			esp += 1
 		}
 		return len(nodes)
 	case 1:
 		for i := range nodes {
 			nodes[i].Accept(v, s, esp)
+			esp += 1
 		}
 		return len(nodes)
 	default:

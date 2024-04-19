@@ -26,7 +26,7 @@ async function main() {
 
     const create: TransactionResponse = await hero.sendTransaction({
         type: 2,
-        data: "0x603f8061000d6000396000f3fe60806040526000506020506030506001610022576020604051607b8152fd610025565b60005b506020604051600061003857603061003b565b60205b8152f3",
+        data: "0x601d8061000c6000396000f360806040526020604051600160206101008282820403925050508152f3",
     });
     const address: string = ethers.getCreateAddress(create);
     console.log("addr:", address);

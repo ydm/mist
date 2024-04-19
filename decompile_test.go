@@ -1,6 +1,7 @@
 package mist_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/ydm/mist"
@@ -8,5 +9,5 @@ import (
 
 func TestDecompile(t *testing.T) {
 	t.Parallel()
-	mist.Decompile("600161000a5761000d565b60005b")
+	fmt.Println(mist.Decompile("0x60178061000c6000396000f340526000506020604051602060108181019150508152f3"))
 }

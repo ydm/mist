@@ -81,8 +81,10 @@ func handleNativeFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	switch fn {
 	// ADD is variadic.
 	// MUL is variadic.
-	// SUB is variadic.
-	// DIV is variadic.
+	case "-":
+		op, inp, dir = SUB, 2, -1
+	case "/":
+		op, inp, dir = DIV, 2, -1
 	// SDIV is NOT implemented.
 	case "%":
 		op, inp, dir = MOD, 2, -1
@@ -221,13 +223,9 @@ func handleVariadicFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 		op, ok = ADD, true
 	case "*":
 		op, ok = MUL, true
-	case "-":
-		op, ok = SUB, true
-	case "/":
-		op, ok = DIV, true
-	case "<":
+	case "<":					// TODO: Check!
 		op, ok = LT, true
-	case ">":
+	case ">":					// TODO: Check!
 		op, ok = GT, true
 	case "=":
 		op, ok = EQ, true
@@ -348,10 +346,11 @@ func handleDefun(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 
 	for i := range fn.Args {
 		identifier := fn.Args[i].ValueString
+		position := ebp + len(fn.Args) - 1 - i
 		childScope.SetStackVariable(identifier, StackVariable{
 			Origin:     fn.Args[i].Origin,
 			Identifier: identifier,
-			Position:   ebp + i,
+			Position:   position,
 		})
 	}
 
@@ -359,8 +358,8 @@ func handleDefun(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	esp += 1
 
 	if len(fn.Args) > 0 {
-		v.addOp(OpCode(SWAP1 -1 + len(fn.Args)))
-		for range(fn.Args) {
+		v.addOp(OpCode(SWAP1 - 1 + len(fn.Args)))
+		for range fn.Args {
 			v.addOp(POP)
 		}
 	}

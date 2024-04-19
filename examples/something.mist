@@ -1,18 +1,22 @@
-(defun f (a b) (+ a b))
+(defun f (a b c) (- (/ a b) c))
 
-;; Functions are not payable.
+(return (f 0x100 0x20 1))
 
-;; (when (call-value)
-;;   (revert 1))
+;; (defun f (a b) (+ a b))
 
-(defconst *qwe* nil)
-(defconst *yes* 0x20)
-(defconst *no* 0x30)
+;; ;; Functions are not payable.
 
-(unless t
-  (revert 123))
+;; ;; (when (call-value)
+;; ;;   (revert 1))
 
-(return (if *qwe* *yes* *no*))
+;; (defconst *qwe* nil)
+;; (defconst *yes* 0x20)
+;; (defconst *no* 0x30)
+
+;; (unless t
+;;   (revert 123))
+
+;; (return (if *qwe* *yes* *no*))
 
 ;; (gas-limit)
 ;; (gas-limit)

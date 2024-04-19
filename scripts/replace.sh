@@ -9,5 +9,5 @@ echo "bytecode: ${BYTECODE}"
 #     playground/scripts/deploy.ts
 
 sed -i -r \
-    "s/data: \"+0x[0-9A-Fa-f]+\",/data: \"${BYTECODE}\",/" \
+    "s/data: \"0x[0-9A-Fa-f]+\",/data: \"${BYTECODE}\",/" \
     playground/scripts/deploy.ts

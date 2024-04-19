@@ -222,7 +222,19 @@ func (v *BytecodeVisitor) VisitSymbol(s *Scope, esp int, symbol Node) {
 	variable, ok := s.GetStackVariable(symbol.ValueString)
 	if ok {
 		delta := esp - variable.Position
-		v.addOp(OpCode(DUP1 + delta - 1))
+		if delta <= 0 {
+			panic("broken invariant")
+		}
+		opcode := OpCode(DUP1 + (delta - 1))
+		// fmt.Printf(
+		// 	"var=%s pos=%d esp=%d delta=%d opcode=%s\n",
+		// 	symbol.ValueString,
+		// 	variable.Position,
+		// 	esp,
+		// 	delta,
+		// 	opcode,
+		// )
+		v.addOp(opcode)
 		return
 	}
 

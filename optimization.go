@@ -23,7 +23,7 @@ func OptimizePushPop(segments []segment) []segment {
 	copy(optimized, segments)
 
 	for i := len(marked) - 1; i >= 0; i-- {
-		start := i
+		start := marked[i]
 		end := start + 3
 		optimized = append(optimized[:start], optimized[end:]...)
 	}
