@@ -6,103 +6,44 @@ import (
 	"strings"
 )
 
-func nargs(op OpCode) (int, bool) {
-	switch op { //nolint:exhaustive
-	case STOP:
-		return 0, true
-	case PUSH1:
-		return 1, true
-	case PUSH2:
-		return 2, true
-	case PUSH3:
-		return 3, true
-	case PUSH4:
-		return 4, true
-	case PUSH5:
-		return 5, true
-	case PUSH6:
-		return 6, true
-	case PUSH7:
-		return 7, true
-	case PUSH8:
-		return 8, true
-	case PUSH9:
-		return 9, true
-	case PUSH10:
-		return 10, true
-	case PUSH11:
-		return 11, true
-	case PUSH12:
-		return 12, true
-	case PUSH13:
-		return 13, true
-	case PUSH14:
-		return 14, true
-	case PUSH15:
-		return 15, true
-	case PUSH16:
-		return 16, true
-	case PUSH17:
-		return 17, true
-	case PUSH18:
-		return 18, true
-	case PUSH19:
-		return 19, true
-	case PUSH20:
-		return 20, true
-	case PUSH21:
-		return 21, true
-	case PUSH22:
-		return 22, true
-	case PUSH23:
-		return 23, true
-	case PUSH24:
-		return 24, true
-	case PUSH25:
-		return 25, true
-	case PUSH26:
-		return 26, true
-	case PUSH27:
-		return 27, true
-	case PUSH28:
-		return 28, true
-	case PUSH29:
-		return 29, true
-	case PUSH30:
-		return 30, true
-	case PUSH31:
-		return 31, true
-	case PUSH32:
-		return 32, true
+func nargs(op OpCode) int {
+	if op.IsPush() {
+		return int(op - PUSH0)
 	}
 
-	return 0, false
+	return 0
 }
 
-func Decompile(program string) {
+func Decompile(program string) string {
 	var (
-		line strings.Builder
+		out  strings.Builder
 		ops  = parseOps(program)
 	)
 
 	for i := 0; i < len(ops); i++ {
 		op := ops[i]
-		n, ok := nargs(op)
 
-		if ok {
-			line.Reset()
-			line.WriteString(fmt.Sprintf("| %02x | %s", i, op.String()))
+		n := 0
+		if op.IsPush() {
+			n = int(op - PUSH0)
+		}
+
+		if n > 0 {
+			var line strings.Builder
+			fmt.Fprintf(&line, "| %02x | %s", i, op.String())
 
 			for j := 1; j <= n && (i+j) < len(ops); j++ {
-				line.WriteString(fmt.Sprintf(" %02x", byte(ops[i+j])))
+				fmt.Fprintf(&line, " %02x", byte(ops[i+j]))
 			}
 			i += n
 
-			fmt.Println(line.String())
+			fmt.Fprintln(&out, line.String())
 		} else {
-			fmt.Printf("| %02x | %s\n", i, op.String())
+			fmt.Fprintf(&out, "| %02x | %s\n", i, op.String())
 		}
 	}
+
+	return out.String()
 }
 
 func parseOps(program string) []OpCode {

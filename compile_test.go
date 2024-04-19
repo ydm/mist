@@ -20,6 +20,10 @@ func compileAndCompare(t *testing.T, cases, want []string) {
 
 		if diff := cmp.Diff(want[i], have); diff != "" {
 			t.Logf("Case #%d: %s", i, c)
+
+			t.Logf("want:\n%s", mist.Decompile(want[i]))
+			t.Logf("have:\n%s", mist.Decompile(have))
+
 			t.Fatalf(diff)
 		}
 	}
@@ -51,6 +55,9 @@ func TestCompileDefun(t *testing.T) {
 		"(defun f () 69) (f)",
 
 		"(defun f (x) (+ x 1)) (f 2)",
+		"(defun f (x) (+ x x)) (f 2)",
+
+		"(defun f (x y) (- x y)) (f 0x20 0x10)",
 	}
 
 	want := []string{
@@ -58,6 +65,9 @@ func TestCompileDefun(t *testing.T) {
 		"6045",
 
 		"6002600181019050",
+		"60028081019050",
+
+		"60106020818103915050",
 	}
 
 	compileAndCompare(t, cases, want)
