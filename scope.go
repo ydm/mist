@@ -15,14 +15,15 @@ type LispFunction struct {
 
 func NewLispFunction(n Node) (empty LispFunction, _ error) {
 	// [0] defun
-	// [1] function-name
-	// [2] function-args
-	// [3:] function-body
+	// [1] name
+	// [2] args
+	// [3:] body
 
 	if !n.IsList() {
 		panic("TODO")
 	}
 
+	// (defun name args body...), length should be >= 3
 	if n.NumChildren() < 3 {
 		return empty, NewCompilationError(
 			n.Origin,
@@ -30,6 +31,7 @@ func NewLispFunction(n Node) (empty LispFunction, _ error) {
 		)
 	}
 
+	// [1] name
 	identifier := n.Children[1]
 	if !identifier.IsSymbol() {
 		return empty, NewCompilationError(
@@ -38,15 +40,27 @@ func NewLispFunction(n Node) (empty LispFunction, _ error) {
 		)
 	}
 
+	// [2] args
 	if !n.Children[2].IsList() {
 		return empty, NewCompilationError(
 			n.Children[2].Origin,
-			fmt.Sprintf("invalid function arguments: %v", &n.Children[2]),
+			fmt.Sprintf("fn arguments are not a list: %v", &n.Children[2]),
 		)
 	}
 
 	args := n.Children[2].Children
 
+	// Each "argument" should be a symbol.
+	for i := range args {
+		if !args[i].IsSymbol() {
+			return empty, NewCompilationError(
+				args[i].Origin,
+				fmt.Sprintf("fn argument is not a symbol: %v", &args[i]),
+			)
+		}
+	}
+
+	// [3:] body...
 	body := NewNodeNil(n.Origin)
 	if n.NumChildren() > 3 {
 		body = NewNodeProgn(n.Children[3].Origin)

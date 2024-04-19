@@ -10,39 +10,51 @@ import (
 )
 
 func main() {
-	// source := "examples/something.mist"
-	// stream, err := os.Open(source)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// inp, err := io.ReadAll(stream)
-
-	source := "stdin"
-	inp, err := io.ReadAll(os.Stdin)
+	source := "examples/defun.mist"
+	stream, err := os.Open(source)
 	if err != nil {
 		panic(err)
 	}
+	inp, err := io.ReadAll(stream)
+
+	// source := "stdin"
+	// inp, err := io.ReadAll(os.Stdin)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
 	decoded := string(inp)
 	if !utf8.ValidString(decoded) {
 		panic("TODO")
 	}
 
+	const (
+		// TODO: Turn into cli args.
+		init = false
+		verbose = true
+	)
+
 	// Decorate with a contract constructor.
-	code, err := mist.Compile(decoded, source, true)
+	code, err := mist.Compile(decoded, source, init)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
-	ctor := mist.MakeConstructor(code)
-	fmt.Print("0x" + ctor + code)
+	if verbose {
+		ctor := mist.MakeConstructor(code)
 
-	// fmt.Println("bytecode:")
-	// fmt.Println("0x" + ctor + code)
+		fmt.Println("bytecode:")
+		fmt.Println("0x" + ctor + code)
+		fmt.Println()
 
-	// fmt.Println("deployedBytecode:")
-	// fmt.Println("0x" + code)
+		fmt.Println("deployedBytecode:")
+		fmt.Println("0x" + code)
+		fmt.Println()
 
-	// mist.Decompile(code)
+		mist.Decompile(code)
+	} else {
+		ctor := mist.MakeConstructor(code)
+		fmt.Print("0x" + ctor + code)
+	}
 }

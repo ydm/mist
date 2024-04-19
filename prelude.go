@@ -320,31 +320,56 @@ func handleInlineFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	}
 }
 
-// func handleDefun(v *BytecodeVisitor, s *Scope, esp int, node Node) bool {
-// 	name, args := node.FunctionName(), node.Children[1:]
-// 	assertNargsGte(name, args, 1)
+func handleDefun(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
+	ebp := esp
 
-// 	fn, ok := s.GetFunction(name)
-// 	if !ok {
-// 		panic(NewCompilationError(node.Origin, fmt.Sprintf("void function: %s", name)))
-// 	}
+	name := call.FunctionName()
+	fmt.Printf("CALLING CUSTOM FUN: name=%s esp=%d\n", name, esp)
+	args := assertNargsGte(name, call, 0)
 
-// 	childScope := s.NewChildScope()
-// 	for i := range fn.Args {
-// 		identifier := fn.Args[i].ValueString
-// 		position := len(fn.Args) - 1 - i // Position in stack.
-// 		childScope.SetStackVariable(identifier, StackVariable{
-// 			Origin:     fn.Args[i].Origin,
-// 			Identifier: identifier,
-// 			Position:   position,
-// 		})
-// 	}
+	fn, ok := s.GetFunction(name)
+	if !ok {
+		return false
+	}
 
-// 	// TODO
-// 	fn.Body.Accept(v, s)
+	// Check the number of arguments.
+	if len(args) != len(fn.Args) {
+		panic(NewCompilationError(
+			call.Origin,
+			fmt.Sprintf(
+				"wrong number of arguments: want %d, have %d",
+				len(fn.Args),
+				len(args)),
+		))
+	}
 
-// 	return false
-// }
+	// Create a child scope and evaluate all arguments.
+	childScope := s.NewChildScope()
+	esp += VisitSequence(v, s, esp, args, -1)
+
+	for i := range fn.Args {
+		identifier := fn.Args[i].ValueString
+		fmt.Printf("CREATING STACK VAR: %s ebp=%d i=%d pos=%d\n",
+			identifier, ebp, i, ebp+i)
+		childScope.SetStackVariable(identifier, StackVariable{
+			Origin:     fn.Args[i].Origin,
+			Identifier: identifier,
+			Position:   ebp + i,
+		})
+	}
+
+	fmt.Println("BODY ACCEPT:", esp)
+	fn.Body.Accept(v, childScope, esp) // esp += 1
+
+	if len(fn.Args) > 0 {
+		v.addOp(OpCode(SWAP1 -1 + len(fn.Args)))
+		for range(fn.Args) {
+			v.addOp(POP)
+		}
+	}
+
+	return true
+}
 
 // +------------------+
 // | Inline functions |
@@ -379,8 +404,7 @@ func fnDefconst(v *BytecodeVisitor, s *Scope, _ int, call Node) {
 	s.Defconst(args[0].ValueString, args[1])
 
 	// All expressions have a value.
-	v.VisitNil() // esp += 1
-
+	v.VisitNil()
 }
 
 func fnDefun(v *BytecodeVisitor, s *Scope, _ int, node Node) {
@@ -392,7 +416,7 @@ func fnDefun(v *BytecodeVisitor, s *Scope, _ int, node Node) {
 	s.Defun(fn)
 
 	// All expressions have a value.
-	v.VisitNil() // esp += 1
+	v.VisitNil()
 }
 
 // func fnDiscard(v *BytecodeVisitor, s *Scope, esp int, call Node) int {
@@ -474,19 +498,19 @@ func fnReturn(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	args := assertNargsEq("return", call, 1)
 
 	v.pushU64(0x20)              // [20]
-	esp += 1					 // 
+	esp += 1                     //
 	v.pushU64(freeMemoryPointer) // [FP 20]
-	esp += 1					 // 
+	esp += 1                     //
 	v.addOp(MLOAD)               // [FM 20]
-	esp += 0					 // 
+	esp += 0                     //
 	args[0].Accept(v, s, esp)    // [RV FM 20]
 	esp += 1                     //
 	v.addOp(DUP2)                // [FM RV FM 20]
-	esp += 1					 // 
+	esp += 1                     //
 	v.addOp(MSTORE)              // [FM 20]
-	esp -= 2					 // 
+	esp -= 2                     //
 	v.addOp(RETURN)              // []
-	esp -= 2					 //		
+	esp -= 2                     //
 }
 
 func fnRevert(v *BytecodeVisitor, s *Scope, esp int, call Node) {
@@ -501,11 +525,11 @@ func fnRevert(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	args[0].Accept(v, s, esp)    // [RV FM 20]
 	esp += 1                     //
 	v.addOp(DUP2)                // [FM RV FM 20]
-	esp += 1					 // 
+	esp += 1                     //
 	v.addOp(MSTORE)              // [FM 20]
-	esp -= 2					 // 
+	esp -= 2                     //
 	v.addOp(REVERT)              // []
-	esp -= 2					 // 
+	esp -= 2                     //
 }
 
 func fnStop(v *BytecodeVisitor, _ *Scope, _ int, call Node) {

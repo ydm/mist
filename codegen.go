@@ -26,16 +26,17 @@ func makeSegmentID() int32 {
 type segment struct {
 	id int32
 
-	code    string
+	opcode  int
+	data    string
 	pointer int32
 }
 
-func newSegmentCode(code string) segment {
-	return segment{makeSegmentID(), code, 0}
+func newSegmentData(data string) segment {
+	return segment{makeSegmentID(), -1, data, 0}
 }
 
 func newEmptySegment() segment {
-	return segment{makeSegmentID(), "", 0}
+	return segment{makeSegmentID(), -1, "", 0}
 }
 
 func newSegmentJumpdest() segment {
@@ -43,11 +44,11 @@ func newSegmentJumpdest() segment {
 }
 
 func newSegmentOpCode(op OpCode) segment {
-	return newSegmentCode(fmt.Sprintf("%02x", byte(op)))
+	return segment{makeSegmentID(), int(op), "", 0}
 }
 
 func newSegmentPointer(jumpdest int32) segment {
-	return segment{makeSegmentID(), "", jumpdest}
+	return segment{makeSegmentID(), -1, "", jumpdest}
 }
 
 func (s *segment) isPointer() bool {
@@ -64,22 +65,26 @@ func (s *segment) pointTo(pos int) {
 		panic("broken invariant")
 	}
 
-	if s.code != "" && s.code != code {
+	if s.data != "" && s.data != code {
 		panic(fmt.Sprintf(
 			"trying to reassign a different position: old=%s new=%s",
-			s.code,
+			s.data,
 			code,
 		))
 	}
-	s.code = code
+	s.data = code
 }
 
 func (s *segment) getCode() string {
-	if s.isPointer() && s.code == "" {
+	if s.isPointer() && s.data == "" {
 		panic("pointer not initialized")
 	}
 
-	return s.code
+	if s.opcode >= 0 {
+		return fmt.Sprintf("%02x", byte(s.opcode))
+	}
+
+	return s.data
 }
 
 func (s *segment) len() int {
@@ -87,8 +92,14 @@ func (s *segment) len() int {
 		// The length of this segment is 3 bytes: (PUSH2 AA BB).
 		return 3
 	}
+
+	if s.opcode >= 0 {
+		// Each opcode is exactly 1 byte.
+		return 1
+	}
+
 	// Each byte needs 2 hexadecimal characters.
-	return len(s.code) / 2
+	return len(s.data) / 2
 }
 
 // +-----------------+
@@ -124,7 +135,7 @@ func (v *BytecodeVisitor) addSegment(s segment) {
 }
 
 func (v *BytecodeVisitor) addCode(code string) {
-	v.addSegment(newSegmentCode(code))
+	v.addSegment(newSegmentData(code))
 }
 
 func (v *BytecodeVisitor) addOp(op OpCode) {
@@ -186,19 +197,33 @@ func (v *BytecodeVisitor) VisitNumber(x *uint256.Int)  {
 }
 
 func (v *BytecodeVisitor) VisitSymbol(s *Scope, esp int, symbol Node) {
-	value, ok := s.GetConstant(symbol.ValueString)
-	if !ok {
-		panic(fmt.Sprintf("%v: void variable %s", symbol.Origin, symbol.ValueString))
+	fmt.Println("VISITING SYMBOL " + symbol.ValueString + ", esp=", esp)
+	
+	node, ok := s.GetConstant(symbol.ValueString)
+	if ok {
+		node.Accept(v, s, esp)
+		return
 	}
-	value.Accept(v, s, esp)
+
+	variable, ok := s.GetStackVariable(symbol.ValueString)
+	if ok {
+		delta := esp - variable.Position
+		fmt.Printf("VISITING SYMBOL %s: position=%d esp=%d delta=%d\n", symbol.ValueString, variable.Position, esp, delta)
+
+		v.addOp(OpCode(DUP1 + delta - 1))
+		return
+	}
+
+	panic(fmt.Sprintf("%v: void variable %s", symbol.Origin, symbol.ValueString))
 }
 
 func (v *BytecodeVisitor) VisitFunction(s *Scope, esp int, call Node) {
+	fmt.Printf("VISITING %s, esp=%d\n", call.FunctionName(), esp)
 	handlers := []func(*BytecodeVisitor, *Scope, int, Node) bool{
 		handleNativeFunc,
 		handleVariadicFunc,
 		handleInlineFunc,
-		// handleDefun
+		handleDefun,
 	}
 
 	for _, handler := range handlers {
@@ -228,6 +253,20 @@ func (v *BytecodeVisitor) populatePointers() {
 			pos := v.getPosition(v.segments[i].pointer)
 			v.segments[i].pointTo(pos)
 		}
+	}
+}
+
+func (v *BytecodeVisitor) Optimize() {
+	v.populatePointers()
+
+	// Delete [PUSH[1-16] -> BYTES -> POP] sequences
+
+	// Let's start by optimizing the very simple [PUSH1 -> 00 -> POP]
+	// push := 0
+	for i:= range v.segments {
+		// if strings.HasPrefix(v.segments[i].getCode(), PUSH1.String()) {
+		// }
+		fmt.Printf("%4d | %s\n", i, v.segments[i].getCode())
 	}
 }
 

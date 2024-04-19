@@ -25,3 +25,5 @@ base-fee
 * + - /
 > < =
 logand logior logxor
+
+OPTIMIZER: (1) Delete PUSH[1-16] -> BYTES -> POP

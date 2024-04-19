@@ -14,5 +14,6 @@ func Compile(program, source string, init bool) (string, error) {
 	progn := Parse(&tokens)
 	progn.Accept(visitor, global, 0)
 
+	visitor.Optimize()
 	return visitor.String(), nil
 }
