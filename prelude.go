@@ -324,7 +324,6 @@ func handleDefun(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	ebp := esp
 
 	name := call.FunctionName()
-	fmt.Printf("CALLING CUSTOM FUN: name=%s esp=%d\n", name, esp)
 	args := assertNargsGte(name, call, 0)
 
 	fn, ok := s.GetFunction(name)
@@ -349,8 +348,6 @@ func handleDefun(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 
 	for i := range fn.Args {
 		identifier := fn.Args[i].ValueString
-		fmt.Printf("CREATING STACK VAR: %s ebp=%d i=%d pos=%d\n",
-			identifier, ebp, i, ebp+i)
 		childScope.SetStackVariable(identifier, StackVariable{
 			Origin:     fn.Args[i].Origin,
 			Identifier: identifier,
@@ -358,8 +355,8 @@ func handleDefun(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 		})
 	}
 
-	fmt.Println("BODY ACCEPT:", esp)
-	fn.Body.Accept(v, childScope, esp) // esp += 1
+	fn.Body.Accept(v, childScope, esp)
+	esp += 1
 
 	if len(fn.Args) > 0 {
 		v.addOp(OpCode(SWAP1 -1 + len(fn.Args)))

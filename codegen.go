@@ -26,9 +26,9 @@ func makeSegmentID() int32 {
 type segment struct {
 	id int32
 
-	opcode  int
-	data    string
-	pointer int32
+	opcode  int					// valid if >=0
+	data    string				// 
+	pointer int32				// valid if >0
 }
 
 func newSegmentData(data string) segment {
@@ -51,8 +51,24 @@ func newSegmentPointer(jumpdest int32) segment {
 	return segment{makeSegmentID(), -1, "", jumpdest}
 }
 
+func (s *segment) isData() bool {
+	return !s.isOpcode() && !s.isPointer() && len(s.data) >= 2
+}
+
+func (s *segment) isOpcode() bool {
+	return s.opcode >= 0
+}
+
 func (s *segment) isPointer() bool {
 	return s.pointer != 0
+}
+
+func (s *segment) isPush() bool {
+	return s.isOpcode() && OpCode(s.opcode).IsPush()
+}
+
+func (s *segment) isPop() bool {
+	return s.isOpcode() && OpCode(s.opcode) == POP
 }
 
 func (s *segment) pointTo(pos int) {
@@ -197,8 +213,6 @@ func (v *BytecodeVisitor) VisitNumber(x *uint256.Int)  {
 }
 
 func (v *BytecodeVisitor) VisitSymbol(s *Scope, esp int, symbol Node) {
-	fmt.Println("VISITING SYMBOL " + symbol.ValueString + ", esp=", esp)
-	
 	node, ok := s.GetConstant(symbol.ValueString)
 	if ok {
 		node.Accept(v, s, esp)
@@ -208,8 +222,6 @@ func (v *BytecodeVisitor) VisitSymbol(s *Scope, esp int, symbol Node) {
 	variable, ok := s.GetStackVariable(symbol.ValueString)
 	if ok {
 		delta := esp - variable.Position
-		fmt.Printf("VISITING SYMBOL %s: position=%d esp=%d delta=%d\n", symbol.ValueString, variable.Position, esp, delta)
-
 		v.addOp(OpCode(DUP1 + delta - 1))
 		return
 	}
@@ -218,7 +230,6 @@ func (v *BytecodeVisitor) VisitSymbol(s *Scope, esp int, symbol Node) {
 }
 
 func (v *BytecodeVisitor) VisitFunction(s *Scope, esp int, call Node) {
-	fmt.Printf("VISITING %s, esp=%d\n", call.FunctionName(), esp)
 	handlers := []func(*BytecodeVisitor, *Scope, int, Node) bool{
 		handleNativeFunc,
 		handleVariadicFunc,
@@ -257,17 +268,8 @@ func (v *BytecodeVisitor) populatePointers() {
 }
 
 func (v *BytecodeVisitor) Optimize() {
+	v.segments = OptimizePushPop(v.segments)
 	v.populatePointers()
-
-	// Delete [PUSH[1-16] -> BYTES -> POP] sequences
-
-	// Let's start by optimizing the very simple [PUSH1 -> 00 -> POP]
-	// push := 0
-	for i:= range v.segments {
-		// if strings.HasPrefix(v.segments[i].getCode(), PUSH1.String()) {
-		// }
-		fmt.Printf("%4d | %s\n", i, v.segments[i].getCode())
-	}
 }
 
 func (v *BytecodeVisitor) String() string {

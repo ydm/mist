@@ -34,8 +34,30 @@ func TestCompileDefconst(t *testing.T) {
 	}
 
 	want := []string{
+		// (defconst) results in nil and, if this is the last
+		// expression to compile, it's left on the stack.
 		"6000",
-		"600050607b",
+		"607b",
+	}
+
+	compileAndCompare(t, cases, want)
+}
+
+func TestCompileDefun(t *testing.T) {
+	t.Parallel()
+
+	cases := []string{
+		"(defun f () 69)",
+		"(defun f () 69) (f)",
+
+		"(defun f (x) (+ x 1)) (f 2)",
+	}
+
+	want := []string{
+		"6000",
+		"6045",
+
+		"6002600181019050",
 	}
 
 	compileAndCompare(t, cases, want)

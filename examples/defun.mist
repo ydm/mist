@@ -2,4 +2,6 @@
 
 (defun f (x) (+ x x))
 
+(defun g (x) (+ x x))
+
 (f 10)
