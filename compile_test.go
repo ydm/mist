@@ -34,8 +34,8 @@ func TestCompileDefconst(t *testing.T) {
 	}
 
 	want := []string{
-		"607b",
-		"607b50607b",
+		"6000",
+		"600050607b",
 	}
 
 	compileAndCompare(t, cases, want)

@@ -131,7 +131,7 @@ func (s *Scope) Defconst(identifier string, value Node) {
 	}
 
 	if _, ok := s.GetConstant(identifier); ok {
-		panic(fmt.Sprintf("%v: constant %s already defined", value.Origin, identifier))
+		panic(fmt.Sprintf("%v: constant %s is already defined", value.Origin, identifier))
 	}
 
 	s.Constants[identifier] = value

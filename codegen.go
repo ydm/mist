@@ -173,39 +173,42 @@ func (v *BytecodeVisitor) pushU64(x uint64) {
 	v.pushU256(uint256.NewInt(x))
 }
 
-func (v *BytecodeVisitor) VisitNil() {
+func (v *BytecodeVisitor) VisitNil()  {
 	v.pushU64(0)
 }
 
-func (v *BytecodeVisitor) VisitT() {
+func (v *BytecodeVisitor) VisitT()  {
 	v.pushU64(1)
 }
 
-func (v *BytecodeVisitor) VisitNumber(x *uint256.Int) {
+func (v *BytecodeVisitor) VisitNumber(x *uint256.Int)  {
 	v.pushU256(x)
 }
 
-func (v *BytecodeVisitor) VisitSymbol(s *Scope, symbol Node) {
+func (v *BytecodeVisitor) VisitSymbol(s *Scope, esp int, symbol Node) {
 	value, ok := s.GetConstant(symbol.ValueString)
 	if !ok {
 		panic(fmt.Sprintf("%v: void variable %s", symbol.Origin, symbol.ValueString))
 	}
-	value.Accept(v, s)
+	value.Accept(v, s, esp)
 }
 
-func (v *BytecodeVisitor) VisitFunction(s *Scope, node Node) {
-	//nolint:gocritic,revive
-	if handleNativeFunc(v, s, node) {
-		// noop
-	} else if handleVariadicFunc(v, s, node) {
-		// noop
-	} else if handleInlineFunc(v, s, node) {
-		// noop
-	} else if handleDefun(v, s, node) {
-		// noop
-	} else {
-		panic("unrecognized function call: " + node.String())
+func (v *BytecodeVisitor) VisitFunction(s *Scope, esp int, call Node) {
+	handlers := []func(*BytecodeVisitor, *Scope, int, Node) bool{
+		handleNativeFunc,
+		handleVariadicFunc,
+		handleInlineFunc,
+		// handleDefun
 	}
+
+	for _, handler := range handlers {
+		ok := handler(v, s, esp, call)
+		if ok {
+			return	
+		}
+	}
+
+	panic(fmt.Sprintf("%v: void function: %s", call.Origin, call.FunctionName()))
 }
 
 func (v *BytecodeVisitor) getPosition(id int32) int {

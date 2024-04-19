@@ -11,26 +11,35 @@ import (
 // | Visitor |
 // +---------+
 
+// Each visit function returns the stack delta, i.e. how many stack
+// elements were pushed or taken.
 type Visitor interface {
+	// Simple literals, do not need a scope.
 	VisitNil()
 	VisitT()
-
 	VisitNumber(value *uint256.Int)
-	VisitSymbol(s *Scope, symbol Node)
 
-	VisitFunction(s *Scope, node Node)
+	// Symbols currently serve only as const/variable identifiers.
+	VisitSymbol(s *Scope, esp int, symbol Node)
+
+	VisitFunction(s *Scope, esp int, call Node)
 }
 
-func VisitSequence(v Visitor, s *Scope, nodes []Node, dir int) {
+func VisitSequence(v Visitor, s *Scope, esp int, nodes []Node, dir int) int {
+	ebp := esp
 	switch dir {
 	case -1:
 		for i := len(nodes) - 1; i >= 0; i-- {
-			nodes[i].Accept(v, s)
+			nodes[i].Accept(v, s, esp)
+			esp += 1
 		}
+		return esp - ebp
 	case 1:
 		for i := range nodes {
-			nodes[i].Accept(v, s)
+			nodes[i].Accept(v, s, esp)
+			esp += 1
 		}
+		return esp - ebp
 	default:
 		panic("invalid direction")
 	}
@@ -104,6 +113,9 @@ func NewNodeProgn(origin Origin) Node {
 	return progn
 }
 
+// TODO: Maybe accepting (Node) is better?  And then:
+//
+// parent = parent.AddChil(child)
 func (n *Node) AddChild(child Node) {
 	if n.IsAtom() {
 		panic(fmt.Sprintf("%v: atom %s cannot have children", n.Origin, n.String()))
@@ -118,6 +130,14 @@ func (n *Node) AddChildren(children []Node) {
 	}
 }
 
+func (n *Node) FunctionName() string {
+	if !n.IsList() || n.NumChildren() < 1 || !n.Children[0].IsSymbol() {
+		panic("")
+	}
+
+	return n.Children[0].ValueString
+}
+
 func (n *Node) IsAtom() bool {
 	return !n.IsList()
 }
@@ -130,11 +150,11 @@ func (n *Node) IsEmptyList() bool {
 	return n.IsList() && n.NumChildren() == 0
 }
 
-func (n *Node) IsFunction(name string) bool {
+func (n *Node) IsFunctionCall(name string) bool {
 	return (n.IsList() &&
 		n.NumChildren() > 1 &&
 		n.Children[0].IsSymbol() &&
-		n.Children[0].ValueString == name)
+		n.FunctionName() == name)
 }
 
 func (n *Node) IsList() bool {
@@ -174,7 +194,7 @@ func (n *Node) NumChildren() int {
 // | Visitor |
 // +---------+
 
-func (n *Node) Accept(v Visitor, s *Scope) {
+func (n *Node) Accept(v Visitor, s *Scope, esp int) {
 	if n.IsNil() {
 		v.VisitNil()
 		return
@@ -186,8 +206,10 @@ func (n *Node) Accept(v Visitor, s *Scope) {
 	switch n.Type {
 	case TypeNumber:
 		v.VisitNumber(n.ValueNumber)
+		return
 	case TypeSymbol:
-		v.VisitSymbol(s, *n)
+		v.VisitSymbol(s, esp, *n)
+		return
 	case TypeList:
 		if n.NumChildren() < 1 {
 			// TODO: I should support (empty) arrays too!
@@ -195,8 +217,11 @@ func (n *Node) Accept(v Visitor, s *Scope) {
 		} else if !n.Children[0].IsSymbol() {
 			panic(fmt.Sprintf("%v: %s is not a symbol", n.Children[0].Origin, n.Children[0].String()))
 		} else {
-			v.VisitFunction(s, *n)
+			v.VisitFunction(s, esp, *n)
+			return
 		}
+	default:
+		panic("broken invariant")
 	}
 }
 
