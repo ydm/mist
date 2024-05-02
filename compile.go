@@ -1,21 +1,19 @@
 package mist
 
-func Compile(program, source string, init bool) (string, error) {
+func Compile(program, source string, init bool, offopt uint32) (string, error) {
 	tokens, err := Scan(program, source)
 	if err != nil {
 		return "", err
 	}
+	
+	progn := Parse(&tokens)
+	optimized := OptimizeAST(progn, offopt)
 
 	visitor := NewBytecodeVisitor(init)
 	global := NewGlobalScope()
 
-	progn := Parse(&tokens)
+	optimized.Accept(visitor, global, 0)
 
-	// optimized := OptimizeAST(progn)
-	// optimized.Accept(visitor, global, 0)
-
-	progn.Accept(visitor, global, 0)
-
-	visitor.Optimize()
+	visitor.OptimizeBytecode()
 	return visitor.String(), nil
 }

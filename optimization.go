@@ -4,30 +4,45 @@ package mist
 // | AST optimizations |
 // +-------------------+
 
-func optimizeIfs(node Node) Node {
-	if node.Type != TypeList || !node.Children[0].IsThisSymbol("if") {
+// Flags that turn off optimizations.
+const (
+	OFFOPT_IF = 1 << iota
+	OFFOPT_KUR = 1 << iota
+)
+
+func optimizeIf(node Node) Node {
+	if node.Type != TypeList {
 		return node
+	}
+
+	if !node.Children[0].IsThisSymbol("if") {
+		ans := NewNodeList(node.Origin)
+		for i := range node.Children {
+			ans.AddChild(optimizeIf(node.Children[i]))
+		}
+		return ans
 	}
 
 	// (if cond yes no)
 	//   0    1   2  3
-
 	if node.Children[1].IsT() {
 		return node.Children[2]
 	} else if node.Children[1].IsNil() {
 		return node.Children[3]
 	}
-
 	return node
 }
 
-func OptimizeAST(node Node) Node {
+func OptimizeAST(node Node, offopt uint32) Node {
 	type t func(node Node) Node
 	fns := []t{
-		// optimizeIfs,
+		optimizeIf,
 	}
-	for _, fn := range fns {
-		node = fn(node)
+	for bit, fn := range fns {
+		mask := uint32(1) << bit
+		if mask&offopt == 0 {
+			node = fn(node)
+		}
 	}
 	return node
 }

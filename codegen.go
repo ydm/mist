@@ -295,7 +295,7 @@ func (v *BytecodeVisitor) populatePointers() {
 	}
 }
 
-func (v *BytecodeVisitor) Optimize() {
+func (v *BytecodeVisitor) OptimizeBytecode() {
 	v.segments = OptimizeBytecode(v.segments)
 	v.populatePointers()
 }
