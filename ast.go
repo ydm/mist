@@ -190,7 +190,7 @@ func (n *Node) IsT() bool {
 		if n.NumChildren() == 2 && n.Children[0].IsQuote() {
 			return n.Children[1].IsT()
 		}
-		return !n.IsEmptyList()
+		return false			// Could be true, could be not.
 	case TypeSymbol:
 		return n.ValueString == "t"
 	case TypeNumber:

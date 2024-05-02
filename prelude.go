@@ -255,8 +255,6 @@ func handleBuiltinFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	case "defun":
 		fnDefun(v, s, esp, call)
 		return true // TODO
-	// case "discard":
-	// 	return fnDiscard(v, s, esp, call), true
 	case "if":
 		fnIf(v, s, esp, call)
 		return true
@@ -371,16 +369,36 @@ func fnDefun(v *BytecodeVisitor, s *Scope, _ int, node Node) {
 	v.VisitNil()
 }
 
-// func fnDiscard(v *BytecodeVisitor, s *Scope, esp int, call Node) int {
-// 	args := assertNargsEq("discard", call, 1)
+func fnIf(v *BytecodeVisitor, s *Scope, esp int, call Node) {
+	args := assertNargsEq("if", call, 3)
+	cond, yes, no := args[0], args[1], args[2]
 
-// 	CheckAccept(args[0], v, s, esp, 1)
-// 	v.addOp(POP)
+	// Push the condition.
+	cond.Accept(v, s, esp)
+	esp += 1
 
-// 	// Evaluates 3, consumes 3, pushes 1.
-// 	// Consumes 1, pushes 0.
-// 	return -1
-// }
+	// Jump to the `then` branch if condition holds.
+	dest := newSegmentJumpdest()
+	v.addPointer(dest.id) // esp += 1
+	v.addOp(JUMPI)        // esp -= 2
+	esp -= 1
+
+	// Otherwise, keep executing the `else` and jump after the `then`
+	// at the end.
+	no.Accept(v, s, esp) // Pushing `no`, esp += 1
+	after := newSegmentJumpdest()
+	v.addPointer(after.id) // esp += 1
+	v.addOp(JUMP)          // esp -= 1
+
+	// Now add the `then`.
+	v.addSegment(dest)
+	yes.Accept(v, s, esp) // Pushing `yes`, esp += 1
+
+	// Add the `after` label.
+	v.addSegment(after)
+
+	// Either `yes` or `no` was evaluated, but not both.
+}
 
 func fnProgn(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	ebp := esp
@@ -451,11 +469,6 @@ func fnRevert(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	esp -= 2                     //
 }
 
-func fnStop(v *BytecodeVisitor, _ *Scope, _ int, call Node) {
-	assertNargsEq("stop", call, 0)
-	v.addOp(STOP)
-}
-
 func fnUnless(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	args := assertNargsGte("unless", call, 1)
 
@@ -480,37 +493,6 @@ func fnUnless(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	replacement.AddChild(noop)
 	replacement.AddChild(then)
 	fnIf(v, s, esp, replacement)
-}
-
-func fnIf(v *BytecodeVisitor, s *Scope, esp int, call Node) {
-	args := assertNargsEq("if", call, 3)
-	cond, yes, no := args[0], args[1], args[2]
-
-	// Push the condition.
-	cond.Accept(v, s, esp)
-	esp += 1
-
-	// Jump to the `then` branch if condition holds.
-	dest := newSegmentJumpdest()
-	v.addPointer(dest.id) // esp += 1
-	v.addOp(JUMPI)        // esp -= 2
-	esp -= 1
-
-	// Otherwise, keep executing the `else` and jump after the `then`
-	// at the end.
-	no.Accept(v, s, esp) // Pushing `no`, esp += 1
-	after := newSegmentJumpdest()
-	v.addPointer(after.id) // esp += 1
-	v.addOp(JUMP)          // esp -= 1
-
-	// Now add the `then`.
-	v.addSegment(dest)
-	yes.Accept(v, s, esp) // Pushing `yes`, esp += 1
-
-	// Add the `after` label.
-	v.addSegment(after)
-
-	// Either `yes` or `no` was evaluated, but not both.
 }
 
 func fnWhen(v *BytecodeVisitor, s *Scope, esp int, call Node) {
