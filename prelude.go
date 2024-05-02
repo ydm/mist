@@ -2,25 +2,10 @@ package mist
 
 import "fmt"
 
-// func CheckAccept(node Node, v *BytecodeVisitor, s *Scope, esp int int) int {
-// 	node.Accept(v, s, esp)
-// 	if have := node.Accept(v, s, esp); have == delta {
-// 		return have
-// 	} else {
-// 		panic(fmt.Sprintf(
-// 			"%v: wrong delta: have %d, want %d, %s",
-// 			node.Origin,
-// 			have,
-// 			delta,
-// 			node.String(),
-// 		))
-// 	}
-// }
-
 func assertNargsEq(fn string, call Node, want int) []Node {
 	if call.NumChildren() != (want + 1) {
 		panic(fmt.Sprintf(
-			"%v: have %d, want %d: %v",
+			"%v: have %d arguments, want %d: %v",
 			call.Origin,
 			call.NumChildren(),
 			(want + 1),
@@ -46,7 +31,7 @@ func assertNargsEq(fn string, call Node, want int) []Node {
 func assertNargsGte(fn string, call Node, want int) []Node {
 	if call.NumChildren() < (want + 1) {
 		panic(fmt.Sprintf(
-			"%v: have %d, want at least %d",
+			"%v: have %d arguments, want at least %d",
 			call.Origin,
 			call.NumChildren(),
 			(want + 1),
@@ -79,6 +64,8 @@ func handleNativeFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	)
 
 	switch fn {
+	case "stop":
+		op, inp, dir = STOP, 0, -1
 	// ADD is variadic.
 	// MUL is variadic.
 	case "-":
@@ -90,19 +77,22 @@ func handleNativeFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 		op, inp, dir = MOD, 2, -1
 	// SMOD is NOT implemented.
 	case "+%":
-		op, inp, dir = ADDMOD, 2, -1
+		op, inp, dir = ADDMOD, 3, -1
 	case "*%":
-		op, inp, dir = MULMOD, 2, -1
+		op, inp, dir = MULMOD, 3, -1
 	case "**":
 		fallthrough
 	case "expt":
 		op, inp, dir = EXP, 2, -1
 	// SIGNEXTEND is NOT implemented.
-	// LT (<) is variadic.
-	// GT (>) is variadic.
+	case "<":
+		op, inp, dir = LT, 2, -1
+	case ">":
+		op, inp, dir = GT, 2, -1
 	// SLT is NOT implemented.
 	// SGT is NOT implemented.
-	// EQ (=) is variadic.
+	case "=":
+		op, inp, dir = EQ, 2, -1
 	case "not":
 		fallthrough
 	case "zerop":
@@ -223,12 +213,6 @@ func handleVariadicFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 		op, ok = ADD, true
 	case "*":
 		op, ok = MUL, true
-	case "<":					// TODO: Check!
-		op, ok = LT, true
-	case ">":					// TODO: Check!
-		op, ok = GT, true
-	case "=":
-		op, ok = EQ, true
 	case "&":
 		fallthrough
 	case "logand":
@@ -264,21 +248,9 @@ func handleVariadicFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	return true
 }
 
-func handleInlineFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
+func handleBuiltinFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	fn := call.FunctionName()
 	switch fn {
-	case "%":
-		// (% x y) returns x%y, the remainder of x divided by y
-		fnMod(v, s, esp, call)
-		return true
-	case "+%":
-		// (+% x y m) returns (x+y)%m
-		fnAddmod(v, s, esp, call)
-		return true
-	case "*%":
-		// (*% x y m) returns (x*y)%m
-		fnMulmod(v, s, esp, call)
-		return true
 	case "defconst":
 		fnDefconst(v, s, esp, call)
 		return true
@@ -293,19 +265,17 @@ func handleInlineFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	case "progn":
 		fnProgn(v, s, esp, call)
 		return true
-	case "return":
-		// (return value)
+	case "return": // (return value)
 		fnReturn(v, s, esp, call)
 		return true
-	case "revert":
-		// (revert value)
+	case "revert": // (revert value)
 		fnRevert(v, s, esp, call)
 		return true
-	case "stop":
-		fnStop(v, s, esp, call)
-		return true
-	// case "setq":
-	// 	return 0, false
+
+	//
+	// TODO: If I ever implement macros, these should be reimplemented!
+	//
+
 	case "unless":
 		fnUnless(v, s, esp, call)
 		return true
@@ -318,7 +288,10 @@ func handleInlineFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	}
 }
 
-func handleDefun(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
+// Right now (defun) functions are inlined in the code.  Perhaps I
+// should create a separate data segment for (defun) and introduce
+// (definline) for inline functions?
+func handleDefined(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	ebp := esp
 
 	name := call.FunctionName()
@@ -334,9 +307,11 @@ func handleDefun(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 		panic(NewCompilationError(
 			call.Origin,
 			fmt.Sprintf(
-				"wrong number of arguments: want %d, have %d",
+				"wrong number of arguments for (%s): have %d, want %d",
+				fn.Name,
+				len(args),
 				len(fn.Args),
-				len(args)),
+			),
 		))
 	}
 
@@ -367,26 +342,9 @@ func handleDefun(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	return true
 }
 
-// +------------------+
-// | Inline functions |
-// +------------------+
-
-func fnAddmod(v *BytecodeVisitor, s *Scope, esp int, call Node) {
-	args := assertNargsEq("+%", call, 3)
-	x, y, m := args[0], args[1], args[2]
-
-	m.Accept(v, s, esp)
-	esp += 1
-
-	y.Accept(v, s, esp)
-	esp += 1
-
-	x.Accept(v, s, esp)
-	esp += 1
-
-	v.addOp(ADDMOD)
-	esp += -3 + 1
-}
+// +--------------------+
+// | Built-in functions |
+// +--------------------+
 
 func fnDefconst(v *BytecodeVisitor, s *Scope, _ int, call Node) {
 	args := assertNargsEq("defconst", call, 2)
@@ -425,39 +383,6 @@ func fnDefun(v *BytecodeVisitor, s *Scope, _ int, node Node) {
 // 	// Consumes 1, pushes 0.
 // 	return -1
 // }
-
-func fnMod(v *BytecodeVisitor, s *Scope, esp int, call Node) {
-	args := assertNargsEq("%", call, 2)
-
-	x, y := args[0], args[1]
-
-	y.Accept(v, s, esp)
-	esp += 1
-
-	x.Accept(v, s, esp)
-	esp += 1
-
-	v.addOp(MOD)
-	esp += -2 + 1
-}
-
-func fnMulmod(v *BytecodeVisitor, s *Scope, esp int, call Node) {
-	args := assertNargsEq("*%", call, 3)
-
-	x, y, m := args[0], args[1], args[2]
-
-	m.Accept(v, s, esp)
-	esp += 1
-
-	y.Accept(v, s, esp)
-	esp += 1
-
-	x.Accept(v, s, esp)
-	esp += 1
-
-	v.addOp(ADDMOD)
-	esp += -3 + 1
-}
 
 func fnProgn(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	ebp := esp
@@ -544,7 +469,7 @@ func fnUnless(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	then := NewNodeNil(NewOriginEmpty())
 
 	if len(body) > 0 {
-		then = NewNodeProgn(args[0].Origin)
+		then = NewNodeProgn()
 		then.AddChildren(body)
 	}
 
@@ -601,7 +526,7 @@ func fnWhen(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	then := NewNodeNil(NewOriginEmpty())
 
 	if len(body) > 0 {
-		then = NewNodeProgn(args[0].Origin)
+		then = NewNodeProgn()
 		then.AddChildren(body)
 	}
 

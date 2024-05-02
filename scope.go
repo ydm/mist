@@ -63,7 +63,7 @@ func NewLispFunction(n Node) (empty LispFunction, _ error) {
 	// [3:] body...
 	body := NewNodeNil(n.Origin)
 	if n.NumChildren() > 3 {
-		body = NewNodeProgn(n.Children[3].Origin)
+		body = NewNodeProgn()
 		body.AddChildren(n.Children[3:])
 	}
 

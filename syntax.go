@@ -88,6 +88,9 @@ func parse(tokens *TokenIterator) Node {
 			quote := NewNodeList(next.Origin)
 			quote.AddChild(NewNodeSymbol("quote", next.Origin))
 			quote.AddChild(parse(tokens))
+			if quote.NumChildren() == 0 {
+				panic("wrong number of arguments for (quote): have 0, want at least 1")
+			}
 			return quote
 		case TokenNumber:
 			fallthrough
@@ -102,7 +105,7 @@ func parse(tokens *TokenIterator) Node {
 }
 
 func Parse(tokens *TokenIterator) Node {
-	progn := NewNodeProgn(NewOriginEmpty())
+	progn := NewNodeProgn()
 
 	for tokens.HasNext() {
 		progn.AddChild(parse(tokens))

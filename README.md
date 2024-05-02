@@ -1,4 +1,20 @@
-Code length can never exceed 2^16 bytes (64 megabytes)
+nil (false) values:
+  - the symbol nil
+  - any empty list, quoted or not
+  - the number 0
+  
+t (true) values:
+  - the symbol t
+  - any non-empty list, quoted or not
+  - any number other than 0
+
+Those functions do not result in an expression:
+  - `(stop)`
+  - `(return x)`
+  - `(revert x)`
+
+Limitations:
+  - Code length can never exceed 2^16 bytes (64 megabytes).
 
 Functions:
 

@@ -26,9 +26,25 @@ func makeSegmentID() int32 {
 type segment struct {
 	id int32
 
-	opcode  int					// valid if >=0
-	data    string				// 
-	pointer int32				// valid if >0
+	opcode  int    // valid if >=0
+	data    string //
+	pointer int32  // valid if >0
+}
+
+func (s segment) String() string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "[")
+
+	if s.isData() {
+		fmt.Fprintf(&b, "data %s", s.data)
+	} else if s.isOpcode() {
+		fmt.Fprintf(&b, "op %v", OpCode(s.opcode))
+	} else if s.isPointer() {
+		fmt.Fprintf(&b, "ptr to %d", s.pointer)
+	}
+
+	fmt.Fprintf(&b, "]")
+	return b.String()
 }
 
 func newSegmentData(data string) segment {
@@ -200,15 +216,15 @@ func (v *BytecodeVisitor) pushU64(x uint64) {
 	v.pushU256(uint256.NewInt(x))
 }
 
-func (v *BytecodeVisitor) VisitNil()  {
+func (v *BytecodeVisitor) VisitNil() {
 	v.pushU64(0)
 }
 
-func (v *BytecodeVisitor) VisitT()  {
+func (v *BytecodeVisitor) VisitT() {
 	v.pushU64(1)
 }
 
-func (v *BytecodeVisitor) VisitNumber(x *uint256.Int)  {
+func (v *BytecodeVisitor) VisitNumber(x *uint256.Int) {
 	v.pushU256(x)
 }
 
@@ -245,14 +261,14 @@ func (v *BytecodeVisitor) VisitFunction(s *Scope, esp int, call Node) {
 	handlers := []func(*BytecodeVisitor, *Scope, int, Node) bool{
 		handleNativeFunc,
 		handleVariadicFunc,
-		handleInlineFunc,
-		handleDefun,
+		handleBuiltinFunc,
+		handleDefined,
 	}
 
 	for _, handler := range handlers {
 		ok := handler(v, s, esp, call)
 		if ok {
-			return	
+			return
 		}
 	}
 
@@ -280,7 +296,7 @@ func (v *BytecodeVisitor) populatePointers() {
 }
 
 func (v *BytecodeVisitor) Optimize() {
-	v.segments = OptimizePushPop(v.segments)
+	v.segments = OptimizeBytecode(v.segments)
 	v.populatePointers()
 }
 

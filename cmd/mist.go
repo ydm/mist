@@ -10,18 +10,18 @@ import (
 )
 
 func main() {
-	// source := "examples/defun.mist"
-	// stream, err := os.Open(source)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// inp, err := io.ReadAll(stream)
-
-	source := "stdin"
-	inp, err := io.ReadAll(os.Stdin)
+	source := "examples/something.mist"
+	stream, err := os.Open(source)
 	if err != nil {
 		panic(err)
 	}
+	inp, err := io.ReadAll(stream)
+
+	// source := "stdin"
+	// inp, err := io.ReadAll(os.Stdin)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
 	decoded := string(inp)
 	if !utf8.ValidString(decoded) {
@@ -30,8 +30,8 @@ func main() {
 
 	const (
 		// TODO: Turn into cli args.
-		init = true
-		verbose = false
+		init = false
+		verbose = true
 	)
 
 	// Decorate with a contract constructor.
@@ -44,16 +44,16 @@ func main() {
 	if verbose {
 		ctor := mist.MakeConstructor(code)
 
+		fmt.Println("combined:")
+		fmt.Println("0x" + ctor + code)
+		fmt.Println()
+
 		fmt.Println("constructor:")
 		fmt.Println("0x" + ctor)
 		fmt.Println()
 
 		fmt.Println("deployedBytecode:")
 		fmt.Println("0x" + code)
-		fmt.Println()
-
-		fmt.Println("bytecode:")
-		fmt.Println("0x" + ctor + code)
 		fmt.Println()
 
 		fmt.Print(mist.Decompile(code))

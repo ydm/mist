@@ -10,6 +10,10 @@ func Compile(program, source string, init bool) (string, error) {
 	global := NewGlobalScope()
 
 	progn := Parse(&tokens)
+
+	// optimized := OptimizeAST(progn)
+	// optimized.Accept(visitor, global, 0)
+
 	progn.Accept(visitor, global, 0)
 
 	visitor.Optimize()

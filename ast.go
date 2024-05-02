@@ -106,7 +106,7 @@ func NewNodeNil(origin Origin) Node {
 	return NewNodeSymbol("nil", origin)
 }
 
-func NewNodeProgn(origin Origin) Node {
+func NewNodeProgn() Node {
 	progn := NewNodeList(NewOriginEmpty())
 	progn.AddChild(NewNodeSymbol("progn", NewOriginEmpty()))
 	return progn
@@ -163,18 +163,21 @@ func (n *Node) IsList() bool {
 func (n *Node) IsNil() bool {
 	switch n.Type {
 	case TypeList:
-		return n.IsEmptyList() || (n.NumChildren() == 1 && n.Children[0].IsQuote())
+		if n.NumChildren() == 2 && n.Children[0].IsQuote() {
+			return n.Children[1].IsNil()
+		}
+		return n.IsEmptyList()
 	case TypeSymbol:
 		return n.ValueString == "nil"
 	case TypeNumber:
-		return false
+		return n.ValueNumber.IsZero()
 	default:
 		return false
 	}
 }
 
 func (n *Node) IsQuote() bool {
-	return n.IsSymbol() && n.ValueString == "quote"
+	return n.IsThisSymbol("quote")
 }
 
 func (n *Node) IsSymbol() bool {
@@ -182,7 +185,23 @@ func (n *Node) IsSymbol() bool {
 }
 
 func (n *Node) IsT() bool {
-	return n.IsSymbol() && n.ValueString == "t"
+	switch n.Type {
+	case TypeList:
+		if n.NumChildren() == 2 && n.Children[0].IsQuote() {
+			return n.Children[1].IsT()
+		}
+		return !n.IsEmptyList()
+	case TypeSymbol:
+		return n.ValueString == "t"
+	case TypeNumber:
+		return !n.ValueNumber.IsZero()
+	default:
+		return false
+	}
+}
+
+func (n *Node) IsThisSymbol(s string) bool {
+	return n.IsSymbol() && n.ValueString == s
 }
 
 func (n *Node) NumChildren() int {
@@ -197,9 +216,6 @@ func (n *Node) Accept(v Visitor, s *Scope, esp int) {
 	if n.IsNil() {
 		v.VisitNil()
 		return
-	} else if n.IsT() {
-		v.VisitT()
-		return
 	}
 
 	switch n.Type {
@@ -207,7 +223,11 @@ func (n *Node) Accept(v Visitor, s *Scope, esp int) {
 		v.VisitNumber(n.ValueNumber)
 		return
 	case TypeSymbol:
-		v.VisitSymbol(s, esp, *n)
+		if n.IsT() {
+			v.VisitT()
+		} else {	
+			v.VisitSymbol(s, esp, *n)
+		}
 		return
 	case TypeList:
 		if n.NumChildren() < 1 {
