@@ -10,18 +10,18 @@ import (
 )
 
 func main() {
-	source := "examples/something.mist"
-	stream, err := os.Open(source)
-	if err != nil {
-		panic(err)
-	}
-	inp, err := io.ReadAll(stream)
-
-	// source := "stdin"
-	// inp, err := io.ReadAll(os.Stdin)
+	// source := "examples/something.mist"
+	// stream, err := os.Open(source)
 	// if err != nil {
 	// 	panic(err)
 	// }
+	// inp, err := io.ReadAll(stream)
+
+	source := "stdin"
+	inp, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		panic(err)
+	}
 
 	decoded := string(inp)
 	if !utf8.ValidString(decoded) {
@@ -30,12 +30,12 @@ func main() {
 
 	const (
 		// TODO: Turn into cli args.
-		init = false
-		verbose = true
+		init = true
+		verbose = false
 	)
 
 	// Decorate with a contract constructor.
-	code, err := mist.Compile(decoded, source, init)
+	code, err := mist.Compile(decoded, source, init, 0)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

@@ -249,6 +249,9 @@ func handleVariadicFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 func handleBuiltinFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	fn := call.FunctionName()
 	switch fn {
+	case "and":
+		fnAnd(v, s, esp, call)
+		return true
 	case "defconst":
 		fnDefconst(v, s, esp, call)
 		return true
@@ -342,6 +345,42 @@ func handleDefined(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 // | Built-in functions |
 // +--------------------+
 
+func fnAnd(v *BytecodeVisitor, s *Scope, esp int, call Node) {
+	args := assertNargsGte("and", call, 0)
+
+	after := newSegmentJumpdest()
+
+	v.VisitT()
+	esp += 1
+
+	last := len(args) - 1
+	for i := range args {
+		v.addOp(POP)
+		esp -= 1
+
+		args[i].Accept(v, s, esp)
+		esp += 1
+
+		if i != last {
+			v.addOp(DUP1)
+			esp += 1
+		
+			v.addOp(ISZERO)
+			esp += 0
+
+			v.addPointer(after.id)
+			esp += 1
+
+			v.addOp(JUMPI)
+			esp -= 2
+		}
+	}
+
+	if len(args) > 1 {
+		v.addSegment(after)
+	}
+}
+
 func fnDefconst(v *BytecodeVisitor, s *Scope, _ int, call Node) {
 	args := assertNargsEq("defconst", call, 2)
 	name, value := args[0], args[1]
@@ -413,11 +452,12 @@ func fnProgn(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	// For each expression of progn's body, if it's not the last one,
 	// discard (i.e. pop) it.  Otherwise, if it's the last, push it
 	// onto the stack.
+	last := len(args) - 1
 	for i := range args {
 		args[i].Accept(v, s, esp)
 		esp += 1
 
-		if last := (i == len(args)-1); !last {
+		if i != last {
 			// This is not the last expression, so discard its result.
 			v.addOp(POP)
 			esp -= 1

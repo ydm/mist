@@ -31,6 +31,58 @@ func compileAndCompare(t *testing.T, cases, want []string) {
 	}
 }
 
+func TestCompileAnd(t *testing.T) {
+	t.Parallel()
+
+	cases := []string{
+		"(and)",
+
+		"(and 1)",
+		"(and t)",
+		
+		"(and 0)",
+		"(and nil)",
+
+		"(and 0x20 0x30)",
+		"(and 0x20 nil)",
+	}
+
+	want := []string{
+		"6001",
+
+		"6001",
+		"6001",
+		
+		"6000",
+		"6000",
+
+		"6020801561000b575060305b", // "6001506020801561000e575060305b",
+		"6020801561000b575060005b",
+	}
+
+	compileAndCompare(t, cases, want)	
+}
+
+func TestCompileComplex(t *testing.T) {
+	t.Parallel()
+
+	cases := []string{
+		"(= (>> (calldata-load 0) 0xe0) 0xa7a0d537)",
+		"(return 69)",
+		"(calldata-load 0)",
+		"(>> (calldata-load 0) 0xe0)",
+	}
+
+	want := []string{
+		"63a7a0d53760003560e01c14",
+		"602060405160458152f3",
+		"600035",
+		"60003560e01c",
+	}
+
+	compileAndCompare(t, cases, want)
+}
+
 func TestCompileDefconst(t *testing.T) {
 	t.Parallel()
 
@@ -133,26 +185,6 @@ func TestCompileIf(t *testing.T) {
 
 		"6001600460026002020403610015576000610017565b005b",
 		"600160046002600202040361001557600061001e565b60036002016001015b5000",
-	}
-
-	compileAndCompare(t, cases, want)
-}
-
-func TestCompileComplex(t *testing.T) {
-	t.Parallel()
-
-	cases := []string{
-		"(= (>> (calldata-load 0) 0xe0) 0xa7a0d537)",
-		"(return 69)",
-		"(calldata-load 0)",
-		"(>> (calldata-load 0) 0xe0)",
-	}
-
-	want := []string{
-		"63a7a0d53760003560e01c14",
-		"602060405160458152f3",
-		"600035",
-		"60003560e01c",
 	}
 
 	compileAndCompare(t, cases, want)
