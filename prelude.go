@@ -1,6 +1,8 @@
 package mist
 
-import "fmt"
+import (
+	"fmt"
+)
 
 func assertNargsEq(fn string, call Node, want int) []Node {
 	if call.NumChildren() != (want + 1) {
@@ -258,6 +260,9 @@ func handleBuiltinFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	case "defun":
 		fnDefun(v, s, esp, call)
 		return true // TODO
+	case "funcsel":
+		fnFuncsel(v, s, esp, call)
+		return true
 	case "if":
 		fnIf(v, s, esp, call)
 		return true
@@ -406,6 +411,15 @@ func fnDefun(v *BytecodeVisitor, s *Scope, _ int, node Node) {
 
 	// All expressions have a value.
 	v.VisitNil()
+}
+
+func fnFuncsel(v *BytecodeVisitor, s *Scope, esp int, call Node) {
+	args := assertNargsEq("funcsel", call, 1)
+	if !args[0].IsString() {
+		panic("TODO")
+	}
+
+	// fmt.Printf("%v\n", Keccak256Hash([]byte("pause()")))
 }
 
 func fnIf(v *BytecodeVisitor, s *Scope, esp int, call Node) {

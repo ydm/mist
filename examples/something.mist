@@ -4,6 +4,8 @@
 
 (return (and 0x30 0x20 (f 0x100 0x20 1)))
 
+(selector "pause()") ;; 0x8456cb59
+
 ;; (defun f (a b) (+ a b))
 
 ;; ;; Functions are not payable.

@@ -123,7 +123,8 @@ func Scan(code string, filename string) (TokenIterator, error) {
 
 		if strings.HasPrefix(built, "\"") {
 			// Token starts with a double quote, treat it as string.
-			panic("TODO") // TODO: Handle strings!
+			fmt.Printf("[X] %s\n", built)
+			push(TokenString, built, nil, builderLine, builderColumn)
 		} else if strings.HasPrefix(built, "0x") {
 			// Token starts with a 0x prefix, treat it as number.
 			if parsed, err := uint256.FromHex(built); err == nil {

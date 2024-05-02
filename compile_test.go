@@ -128,35 +128,15 @@ func TestCompileDefun(t *testing.T) {
 	compileAndCompare(t, cases, want)
 }
 
-func TestCompileVariadic(t *testing.T) {
+func TestFuncsel(t *testing.T) {
 	t.Parallel()
 
 	cases := []string{
-		"(+ 1 2)",
-		"(+ 1 2 3)",
-		"(- 3 2)",
-		// "(- 3 2 1)",
-		"(- (+ 3 2) 1)",
-		"(/ 4 2)",
-		"(- (* (+ 3 1) (/ 4 2)) 6)",
-		"(logand 1 3 7)",
-		"(& 1 3 7)",
-		"(logior 1 3 7)",
-		"(| 1 3 7)",
+		"(funcsel \"pause()\")",
 	}
 
 	want := []string{
-		"6002600101",
-		"6003600201600101",
-		"6002600303",
-		// "6001600203600303",
-		"6001600260030103",
-		"6002600404",
-		"6006600260040460016003010203",
-		"6007600316600116",
-		"6007600316600116",
-		"6007600317600117",
-		"6007600317600117",
+		"638456cb59",
 	}
 
 	compileAndCompare(t, cases, want)
@@ -190,6 +170,36 @@ func TestCompileIf(t *testing.T) {
 	compileAndCompare(t, cases, want)
 }
 
-func TestCompileNative(t *testing.T) {
+func TestCompileVariadic(t *testing.T) {
 	t.Parallel()
+
+	cases := []string{
+		"(+ 1 2)",
+		"(+ 1 2 3)",
+		"(- 3 2)",
+		// "(- 3 2 1)",
+		"(- (+ 3 2) 1)",
+		"(/ 4 2)",
+		"(- (* (+ 3 1) (/ 4 2)) 6)",
+		"(logand 1 3 7)",
+		"(& 1 3 7)",
+		"(logior 1 3 7)",
+		"(| 1 3 7)",
+	}
+
+	want := []string{
+		"6002600101",
+		"6003600201600101",
+		"6002600303",
+		// "6001600203600303",
+		"6001600260030103",
+		"6002600404",
+		"6006600260040460016003010203",
+		"6007600316600116",
+		"6007600316600116",
+		"6007600317600117",
+		"6007600317600117",
+	}
+
+	compileAndCompare(t, cases, want)
 }

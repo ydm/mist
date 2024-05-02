@@ -53,6 +53,7 @@ const (
 
 	TypeSymbol
 	TypeNumber
+	TypeString
 
 	// string, function, primitive, macro
 )
@@ -178,6 +179,10 @@ func (n *Node) IsNil() bool {
 
 func (n *Node) IsQuote() bool {
 	return n.IsThisSymbol("quote")
+}
+
+func (n *Node) IsString() bool {
+	return false
 }
 
 func (n *Node) IsSymbol() bool {
