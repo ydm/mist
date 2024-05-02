@@ -97,9 +97,9 @@ func handleNativeFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 		fallthrough
 	case "zerop":
 		op, inp, dir = ISZERO, 1, -1
-	// AND (logand, &) is variadic.
-	// OR (logior, |) is variadic.
-	// XOR (logxor, ^) is variadic.
+	// AND is variadic.
+	// OR is variadic.
+	// XOR is variadic.
 	case "~":
 		fallthrough
 	case "lognot":
@@ -164,10 +164,8 @@ func handleNativeFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	// case "sstore"
 	// case "jump"
 	// case "jumpi"
-	case "program-counter":
-		op, inp, dir = PC, 0, -1
-	case "memory-size":
-		op, inp, dir = MSIZE, 0, -1
+	// case "program-counter": op, inp, dir = PC, 0, -1
+	// case "memory-size": op, inp, dir = MSIZE, 0, -1
 	case "available-gas":
 		op, inp, dir = GAS, 0, -1
 	// case "jumpdest"
