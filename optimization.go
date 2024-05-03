@@ -11,7 +11,7 @@ const (
 )
 
 func optimizeIf(node Node) Node {
-	if node.Type != TypeList {
+	if node.Type != NodeList || node.NumChildren() < 1 {
 		return node
 	}
 

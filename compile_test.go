@@ -128,20 +128,6 @@ func TestCompileDefun(t *testing.T) {
 	compileAndCompare(t, cases, want)
 }
 
-func TestFuncsel(t *testing.T) {
-	t.Parallel()
-
-	cases := []string{
-		"(funcsel \"pause()\")",
-	}
-
-	want := []string{
-		"638456cb59",
-	}
-
-	compileAndCompare(t, cases, want)
-}
-
 func TestCompileIf(t *testing.T) {
 	t.Parallel()
 
@@ -165,6 +151,38 @@ func TestCompileIf(t *testing.T) {
 
 		"6001600460026002020403610015576000610017565b005b",
 		"600160046002600202040361001557600061001e565b60036002016001015b5000",
+	}
+
+	compileAndCompare(t, cases, want)
+}
+
+func TestCompileSelector(t *testing.T) {
+	t.Parallel()
+
+	cases := []string{
+		"(selector \"pause()\")",
+		"(selector \"something()\")",
+	}
+
+	want := []string{
+		"638456cb59",
+		"63a7a0d537",
+	}
+
+	compileAndCompare(t, cases, want)
+}
+
+func TestCompileString(t *testing.T) {
+	t.Parallel()
+
+	cases := []string {
+		"\"qwe\"",
+		"\"0123456789012345678901234567890\"",
+	}
+
+	want := []string{
+		"6383717765",
+		"7f9f30313233343536373839303132333435363738393031323334353637383930",
 	}
 
 	compileAndCompare(t, cases, want)

@@ -18,6 +18,7 @@ type Visitor interface {
 	VisitNil()
 	VisitT()
 	VisitNumber(value *uint256.Int)
+	VisitString(node Node)
 
 	// Symbols currently serve only as const/variable identifiers.
 	VisitSymbol(s *Scope, esp int, symbol Node)
@@ -49,13 +50,12 @@ func VisitSequence(v Visitor, s *Scope, esp int, nodes []Node, dir int) int {
 // +------+
 
 const (
-	TypeList = iota
+	NodeList   = iota // 0
+	NodeSymbol        // 1
+	NodeNumber        // 2
+	NodeString        // 3
 
-	TypeSymbol
-	TypeNumber
-	TypeString
-
-	// string, function, primitive, macro
+	// function, primitive, macro
 )
 
 type Node struct {
@@ -71,7 +71,7 @@ type Node struct {
 
 func NewNodeU256(x *uint256.Int, origin Origin) Node {
 	return Node{
-		Type:        TypeNumber,
+		Type:        NodeNumber,
 		ValueString: "",
 		ValueNumber: x,
 		Children:    nil,
@@ -83,9 +83,19 @@ func NewNodeU64(x uint64, origin Origin) Node {
 	return NewNodeU256(uint256.NewInt(x), origin)
 }
 
+func NewNodeString(value string, origin Origin) Node {
+	return Node{
+		Type:        NodeString,
+		ValueString: value,
+		ValueNumber: nil,
+		Children:    nil,
+		Origin:      origin,
+	}
+}
+
 func NewNodeSymbol(symbol string, origin Origin) Node {
 	return Node{
-		Type:        TypeSymbol,
+		Type:        NodeSymbol,
 		ValueString: symbol,
 		ValueNumber: nil,
 		Children:    nil,
@@ -95,7 +105,7 @@ func NewNodeSymbol(symbol string, origin Origin) Node {
 
 func NewNodeList(origin Origin) Node {
 	return Node{
-		Type:        TypeList,
+		Type:        NodeList,
 		ValueString: "",
 		ValueNumber: nil,
 		Children:    make([]Node, 0, 4),
@@ -143,7 +153,7 @@ func (n *Node) IsAtom() bool {
 }
 
 func (n *Node) IsConstant() bool {
-	return n.Type == TypeNumber || n.Type == TypeSymbol
+	return n.Type == NodeNumber || n.Type == NodeSymbol
 }
 
 func (n *Node) IsEmptyList() bool {
@@ -158,19 +168,19 @@ func (n *Node) IsFunctionCall(name string) bool {
 }
 
 func (n *Node) IsList() bool {
-	return n.Type == TypeList
+	return n.Type == NodeList
 }
 
 func (n *Node) IsNil() bool {
 	switch n.Type {
-	case TypeList:
+	case NodeList:
 		if n.NumChildren() == 2 && n.Children[0].IsQuote() {
 			return n.Children[1].IsNil()
 		}
 		return n.IsEmptyList()
-	case TypeSymbol:
+	case NodeSymbol:
 		return n.ValueString == "nil"
-	case TypeNumber:
+	case NodeNumber:
 		return n.ValueNumber.IsZero()
 	default:
 		return false
@@ -182,23 +192,23 @@ func (n *Node) IsQuote() bool {
 }
 
 func (n *Node) IsString() bool {
-	return false
+	return n.Type == NodeString
 }
 
 func (n *Node) IsSymbol() bool {
-	return n.Type == TypeSymbol && n.ValueString != ""
+	return n.Type == NodeSymbol && n.ValueString != ""
 }
 
 func (n *Node) IsT() bool {
 	switch n.Type {
-	case TypeList:
+	case NodeList:
 		if n.NumChildren() == 2 && n.Children[0].IsQuote() {
 			return n.Children[1].IsT()
 		}
-		return false			// Could be true, could be not.
-	case TypeSymbol:
+		return false // Could be true, could be not.
+	case NodeSymbol:
 		return n.ValueString == "t"
-	case TypeNumber:
+	case NodeNumber:
 		return !n.ValueNumber.IsZero()
 	default:
 		return false
@@ -224,17 +234,20 @@ func (n *Node) Accept(v Visitor, s *Scope, esp int) {
 	}
 
 	switch n.Type {
-	case TypeNumber:
+	case NodeNumber:
 		v.VisitNumber(n.ValueNumber)
 		return
-	case TypeSymbol:
+	case NodeString:
+		v.VisitString(*n)
+		return
+	case NodeSymbol:
 		if n.IsT() {
 			v.VisitT()
-		} else {	
+		} else {
 			v.VisitSymbol(s, esp, *n)
 		}
 		return
-	case TypeList:
+	case NodeList:
 		if n.NumChildren() < 1 {
 			// TODO: I should support (empty) arrays too!
 			panic("TODO")
@@ -251,15 +264,15 @@ func (n *Node) Accept(v Visitor, s *Scope, esp int) {
 
 func (n *Node) String() string {
 	switch n.Type {
-	case TypeList:
+	case NodeList:
 		inner := make([]string, 0, len(n.Children))
 		for _, child := range n.Children {
 			inner = append(inner, child.String())
 		}
 		return fmt.Sprintf("(%s)", strings.Join(inner, " "))
-	case TypeSymbol:
+	case NodeSymbol:
 		return n.ValueString
-	case TypeNumber:
+	case NodeNumber:
 		return n.ValueNumber.Dec()
 	default:
 		panic("TODO")

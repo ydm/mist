@@ -228,6 +228,23 @@ func (v *BytecodeVisitor) VisitNumber(x *uint256.Int) {
 	v.pushU256(x)
 }
 
+func (v *BytecodeVisitor) VisitString(n Node) {
+	if !n.IsString() {
+		panic("TODO")
+	}
+
+	encoded := Encode(n.ValueString)
+	length := len(encoded) / 2
+	if length > 32 {
+		// Still not supporting strings bigger than a single word.
+		panic("string literal is longer than 31 characters")
+	}
+
+	op := OpCode(byte(PUSH0) + byte(length))
+	v.addOp(op)
+	v.addCode(encoded)
+}
+
 func (v *BytecodeVisitor) VisitSymbol(s *Scope, esp int, symbol Node) {
 	node, ok := s.GetConstant(symbol.ValueString)
 	if ok {

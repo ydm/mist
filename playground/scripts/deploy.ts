@@ -26,7 +26,7 @@ async function main() {
 
     const create: TransactionResponse = await hero.sendTransaction({
         type: 2,
-        data: "0x60308061000c6000396000f3608060405260206040516030801561002c57506020801561002c5750600160206101008282820403925050505b8152f3",
+        data: "0x60368061000c6000396000f36080604052638a0101fa60003560e01c1461001b576000610026565b602060405160698152f35b50602060405164846e6f70658152fd",
     });
     const address: string = ethers.getCreateAddress(create);
     console.log("addr:", address);
@@ -39,7 +39,7 @@ async function main() {
     const tx = await contract.something.populateTransaction({
         value: 0, // ethers.parseEther("1"),
     });
-    const result: string = await hero.call(tx)
+    const result: string = await hero.call(tx);
     console.log(result);
 
     // const result: bigint = await contract.something.staticCall()

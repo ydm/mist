@@ -6,6 +6,7 @@ contract Empty {
     uint256 one;
 
     function something() external payable returns (uint256) {
+        revert("asd");
         return 69;
     }
 

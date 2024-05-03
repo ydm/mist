@@ -27,7 +27,7 @@ func consumeExcept(tokens *TokenIterator, types ...int) Token {
 
 	for _, tokenType := range types {
 		if next.Type == tokenType {
-			panic(fmt.Sprintf("%v: unexpected token %s",next.Origin, next.Short()))
+			panic(fmt.Sprintf("%v: unexpected token %s", next.Origin, next.Short()))
 		}
 	}
 
@@ -46,7 +46,7 @@ func parseAtom(tokens *TokenIterator) Node {
 	case TokenNumber:
 		return NewNodeU256(next.ValueNumber, next.Origin)
 	case TokenString:
-		panic("TODO")
+		return NewNodeString(next.ValueString, next.Origin)
 	case TokenSymbol:
 		return NewNodeSymbol(next.ValueString, next.Origin)
 	default:
@@ -84,7 +84,7 @@ func parse(tokens *TokenIterator) Node {
 		case TokenRightParen:
 			panic("unbalanced parentheses")
 		case TokenQuote:
-			tokens.Next()
+			tokens.Next() // Consume the quote token.
 			quote := NewNodeList(next.Origin)
 			quote.AddChild(NewNodeSymbol("quote", next.Origin))
 			quote.AddChild(parse(tokens))

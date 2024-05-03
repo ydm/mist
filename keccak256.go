@@ -1,3 +1,5 @@
+// Segments copied from go-ethereum/crypto/crypto.go
+
 package mist
 
 import (
@@ -5,8 +7,6 @@ import (
 
 	"golang.org/x/crypto/sha3"
 )
-
-// Taken from go-ethereum/crypto/crypto.go
 
 type KeccakState interface {
 	hash.Hash

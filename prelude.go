@@ -260,9 +260,6 @@ func handleBuiltinFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	case "defun":
 		fnDefun(v, s, esp, call)
 		return true // TODO
-	case "funcsel":
-		fnFuncsel(v, s, esp, call)
-		return true
 	case "if":
 		fnIf(v, s, esp, call)
 		return true
@@ -274,6 +271,9 @@ func handleBuiltinFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 		return true
 	case "revert": // (revert value)
 		fnRevert(v, s, esp, call)
+		return true
+	case "selector":
+		fnSelector(v, s, esp, call)
 		return true
 
 	//
@@ -369,7 +369,7 @@ func fnAnd(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 		if i != last {
 			v.addOp(DUP1)
 			esp += 1
-		
+
 			v.addOp(ISZERO)
 			esp += 0
 
@@ -411,15 +411,6 @@ func fnDefun(v *BytecodeVisitor, s *Scope, _ int, node Node) {
 
 	// All expressions have a value.
 	v.VisitNil()
-}
-
-func fnFuncsel(v *BytecodeVisitor, s *Scope, esp int, call Node) {
-	args := assertNargsEq("funcsel", call, 1)
-	if !args[0].IsString() {
-		panic("TODO")
-	}
-
-	// fmt.Printf("%v\n", Keccak256Hash([]byte("pause()")))
 }
 
 func fnIf(v *BytecodeVisitor, s *Scope, esp int, call Node) {
@@ -521,6 +512,19 @@ func fnRevert(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	esp -= 2                     //
 	v.addOp(REVERT)              // []
 	esp -= 2                     //
+}
+
+func fnSelector(v *BytecodeVisitor, _ *Scope, _ int, call Node) {
+	args := assertNargsEq("selector", call, 1)
+
+	if !args[0].IsString() {
+		panic("TODO")
+	}
+
+	h := Keccak256Hash([]byte(args[0].ValueString))
+
+	v.addOp(PUSH4)
+	v.addCode(fmt.Sprintf("%02x%02x%02x%02x", h[0], h[1], h[2], h[3]))
 }
 
 func fnUnless(v *BytecodeVisitor, s *Scope, esp int, call Node) {

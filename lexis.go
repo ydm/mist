@@ -8,6 +8,72 @@ import (
 	"github.com/holiman/uint256"
 )
 
+// A very simple state machine.
+
+const (
+	lexerStateCode = iota
+	lexerStateComment
+	lexerStateString
+)
+
+type lexerState struct {
+	state  int
+	lines  int
+	offset int
+}
+
+func newLexerState() lexerState {
+	return lexerState{lexerStateCode, 1, 0}
+}
+
+func (s *lexerState) transitionTo(state int) bool {
+	// Allowed transitions:
+	//
+	// code -> comment
+	// code -> string
+	//
+	// comment -> code
+	//
+	// string -> code
+	switch s.state {
+	case lexerStateCode:
+		if state == lexerStateComment || state == lexerStateString {
+			goto allowed
+		}
+	case lexerStateComment:
+		fallthrough
+	case lexerStateString:
+		if state == lexerStateCode {
+			goto allowed
+		}
+	}
+	return false
+
+allowed:
+	s.state = state
+	return true
+}
+
+func (s *lexerState) newLine(index int) {
+	s.lines++
+	s.offset = index + 1
+}
+
+func (s *lexerState) inCode() bool {
+	return s.state == lexerStateCode
+}
+
+func (s *lexerState) inComment() bool {
+	return s.state == lexerStateComment
+}
+
+func (s *lexerState) inString() bool {
+	return s.state == lexerStateString
+}
+
+func (s *lexerState) getLine() int            { return s.lines }
+func (s *lexerState) getColumn(index int) int { return index - s.offset }
+
 // +-------+
 // | Token |
 // +-------+
@@ -94,8 +160,20 @@ func Scan(code string, filename string) (TokenIterator, error) {
 		builderColumn int
 
 		tokens = NewTokenIterator()
+		state  = newLexerState()
+		// prev   = rune(0) // TODO
 
-		push = func(tokenType int, s string, n *uint256.Int, line, col int) {
+		pushRune = func(i int, r rune) {
+			// If this is the first character from a new token,
+			// mark the line and column of origin.
+			if builder.Len() <= 0 {
+				builderLine = state.getLine()
+				builderColumn = state.getColumn(i)
+			}
+			builder.WriteRune(r)
+		}
+
+		pushToken = func(tokenType int, s string, n *uint256.Int, line, col int) {
 			tokens.push(Token{
 				Type:        tokenType,
 				ValueString: s,
@@ -103,107 +181,152 @@ func Scan(code string, filename string) (TokenIterator, error) {
 				Origin:      NewOrigin(filename, line, col),
 			})
 		}
-	)
 
-	// If there are characters already collected, we might be able to
-	// build a token.
-	maybeBuild := func() error {
-		if builder.Len() <= 0 {
+		// If there are characters already collected, we might be able to
+		// build a token.
+		maybeBuild = func() error {
+			if builder.Len() <= 0 {
+				return nil
+			}
+
+			built := strings.TrimSpace(builder.String())
+			if len(built) <= 0 {
+				panic("broken invariant")
+			}
+
+			e := func(msg string) error {
+				return NewLexicalError(filename, builderLine, builderColumn, msg, built)
+			}
+
+			if strings.HasPrefix(built, "\"") && strings.HasSuffix(built, "\"") {
+				end := len(built) - 1
+				stripped := built[1:end]
+				pushToken(TokenString, stripped, nil, builderLine, builderColumn)
+			} else if strings.HasPrefix(built, "0x") {
+				// Token starts with a 0x prefix, treat it as number.
+				if parsed, err := uint256.FromHex(built); err == nil {
+					pushToken(TokenNumber, "", parsed, builderLine, builderColumn)
+				} else {
+					return e("invalid hex literal")
+				}
+			} else if parsed, err := uint256.FromDecimal(built); err == nil {
+				// If token can be parsed into a number, treat it as such.
+				pushToken(TokenNumber, "", parsed, builderLine, builderColumn)
+			} else {
+				// TODO: Check if that's a proper symbol, contains no
+				// forbidden characters like quotes, etc.
+				pushToken(TokenSymbol, built, nil, builderLine, builderColumn)
+			}
+
+			builder.Reset()
 			return nil
 		}
+	)
 
-		built := strings.TrimSpace(builder.String())
-		if len(built) <= 0 {
-			panic("broken invariant")
-		}
-
-		e := func(msg string) error {
-			return NewLexicalError(filename, builderLine, builderColumn, msg, built)
-		}
-
-		if strings.HasPrefix(built, "\"") {
-			// Token starts with a double quote, treat it as string.
-			fmt.Printf("[X] %s\n", built)
-			push(TokenString, built, nil, builderLine, builderColumn)
-		} else if strings.HasPrefix(built, "0x") {
-			// Token starts with a 0x prefix, treat it as number.
-			if parsed, err := uint256.FromHex(built); err == nil {
-				push(TokenNumber, "", parsed, builderLine, builderColumn)
-			} else {
-				return e("invalid hex literal")
-			}
-		} else if parsed, err := uint256.FromDecimal(built); err == nil {
-			// If token can be parsed into a number, treat it as such.
-			push(TokenNumber, "", parsed, builderLine, builderColumn)
-		} else {
-			// TODO: Check if that's a proper symbol, contains no
-			// forbidden characters like quotes, etc.
-			push(TokenSymbol, built, nil, builderLine, builderColumn)
-		}
-
-		builder.Reset()
-		return nil
-	}
-
-	// Context variables.
-	comment := false
-	line := 1 // Lines start from 1.
-	offset := 0
-
-	for index, r := range code {
-		// Everything between a ';' and '\n' is considered a comment.
-		// This would have to change once strings are supported.
-		switch r {
-		case ';':
-			if err := maybeBuild(); err != nil {
-				return tokens, err
-			}
-			comment = true
-		case '\n':
-			comment = false
-			line++
-			offset = index + 1
-		}
-
-		// If inside a comment, skip this character.
-		if comment {
+	for i, r := range code {
+		if r == '"' && state.transitionTo(lexerStateString) {
+			// Beginning of a string.
+			pushRune(i, r)
+			continue
+		} else if r == ';' && state.transitionTo(lexerStateComment) {
+			// Beginning of a comment.
 			continue
 		}
 
-		col := index - offset // Columns start from 0.
+		if state.inComment() {
+			// Inside a comment, ignore character.
+		} else if state.inString() {
+			pushRune(i, r)
+			if r == '"' {
+				if err := maybeBuild(); err != nil {
+					// Error while completing the string.
+					return tokens, err
+				}
+				state.transitionTo(lexerStateCode)
+			}
+		} else if state.inCode() {
+			tokenType := -1
+			switch r {
+			case '(':
+				tokenType = TokenLeftParen
+			case ')':
+				tokenType = TokenRightParen
+			case '\'':
+				tokenType = TokenQuote
+			}
+			if tokenType != -1 {
+				if err := maybeBuild(); err != nil {
+					return tokens, err
+				}
+				pushToken(tokenType, "", nil, state.getLine(), state.getColumn(i))
+				continue
+			}
 
-		// Character is part of the programming code.
-		switch r {
-		case '(':
-			if err := maybeBuild(); err != nil {
-				return tokens, err
-			}
-			push(TokenLeftParen, "", nil, line, col)
-		case ')':
-			if err := maybeBuild(); err != nil {
-				return tokens, err
-			}
-			push(TokenRightParen, "", nil, line, col)
-		case '\'':
-			if err := maybeBuild(); err != nil {
-				return tokens, err
-			}
-			push(TokenQuote, "", nil, line, col)
-		default:
 			if unicode.IsSpace(r) {
 				if err := maybeBuild(); err != nil {
 					return tokens, err
 				}
-			} else {
-				// If this is the first character from a new token,
-				// mark the line and column of origin.
-				if builder.Len() <= 0 {
-					builderLine = line
-					builderColumn = col
-				}
-				builder.WriteRune(r)
+				continue
 			}
+
+			pushRune(i, r)
+		} else {
+			panic("broken invariant")
 		}
+
+		// if r == '"' && state.inString() {
+
+		// 	continue
+		// } else if r == '\n' {
+		// 	// We doesn't support multi-line comments or strings, so
+		// 	// get back to code.
+		// 	state.transitionTo(lexerStateCode)
+		// 	state.newLine(i)
+		// 	continue
+		// }
+
+		// if true {
+		// 	continue
+		// }
+
+		// // If inside a comment, skip this character.
+		// if state.inComment() {
+		// 	continue
+		// } else if state.inString() {
+		// 	pushRune(i, r)
+		// }
+
+		// // Character is part of the programming code.
+		// fmt.Printf("before switch, %c\n", r)
+		// switch r {
+		// case '(':
+		// 	if err := maybeBuild(); err != nil {
+		// 		return tokens, err
+		// 	}
+		// 	pushToken(TokenLeftParen, "", nil, state.getLine(), state.getColumn(i))
+		// case ')':
+		// 	if err := maybeBuild(); err != nil {
+		// 		return tokens, err
+		// 	}
+		// 	pushToken(TokenRightParen, "", nil, state.getLine(), state.getColumn(i))
+		// case '\'':
+		// 	if err := maybeBuild(); err != nil {
+		// 		return tokens, err
+		// 	}
+		// 	pushToken(TokenQuote, "", nil, state.getLine(), state.getColumn(i))
+		// default:
+		// 	if unicode.IsSpace(r) {
+		// 		if err := maybeBuild(); err != nil {
+		// 			return tokens, err
+		// 		}
+		// 	} else {
+		// 		pushRune(i, r)
+		// 		fmt.Printf("[Y 3] %v >%s<\n", tokens.tokens, builder.String())
+		// 	}
+		// }
+		// fmt.Printf("after switch, %c\n", r)
+
+		// prev = r
 	}
 
 	err := maybeBuild()
