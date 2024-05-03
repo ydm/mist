@@ -1,10 +1,15 @@
 (defun fn ()
   (>> (calldata-load 0) 0xe0))
 
-(when (= (fn) (selector "something1()"))
+(revert 0x2)
+
+(when (= (fn) (selector "something()"))
   (return 0x69))
 
-(revert "nope")
+(when (= (fn) (selector "pause()"))
+  (return 0x79))
+
+(revert 0x1)
 
 ;; (defun f (a b c) (- (/ a b) c))
 

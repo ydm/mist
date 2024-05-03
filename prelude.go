@@ -2,6 +2,8 @@ package mist
 
 import (
 	"fmt"
+
+	"github.com/holiman/uint256"
 )
 
 func assertNargsEq(fn string, call Node, want int) []Node {
@@ -496,22 +498,60 @@ func fnReturn(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 }
 
 func fnRevert(v *BytecodeVisitor, s *Scope, esp int, call Node) {
-	args := assertNargsEq("revert", call, 1)
+	// args := assertNargsEq("revert", call, 1)
 
-	v.pushU64(0x20)              // [20]
-	esp += 1                     //
-	v.pushU64(freeMemoryPointer) // [FP 20]
-	esp += 1                     //
-	v.addOp(MLOAD)               // [FM 20]
-	esp += 0                     //
-	args[0].Accept(v, s, esp)    // [RV FM 20]
-	esp += 1                     //
-	v.addOp(DUP2)                // [FM RV FM 20]
-	esp += 1                     //
-	v.addOp(MSTORE)              // [FM 20]
-	esp -= 2                     //
-	v.addOp(REVERT)              // []
-	esp -= 2                     //
+	// v.pushU64(0x20)              // [20]
+	// esp += 1                     //
+	// v.pushU64(freeMemoryPointer) // [FP 20]
+	// esp += 1                     //
+	// v.addOp(MLOAD)               // [FM 20]
+	// esp += 0                     //
+	// args[0].Accept(v, s, esp)    // [RV FM 20]
+	// esp += 1                     //
+	// v.addOp(DUP2)                // [FM RV FM 20]
+	// esp += 1                     //
+	// v.addOp(MSTORE)              // [FM 20]
+	// esp -= 2                     //
+	// v.addOp(REVERT)              // []
+	// esp -= 2                     //
+
+	// keccak256( "Error(string)" )[:4]
+	one := uint256.NewInt(0)
+	one.SetBytes([]byte{
+		0x08, 0xc3, 0x79, 0xa0, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	})
+	v.pushU256(one)
+	v.pushU64(0x80)
+	v.addOp(MSTORE)
+
+	// data offset
+	v.pushU64(0x20)
+	v.pushU64(0x84)
+	v.addOp(MSTORE)
+
+	// string length
+	v.pushU64(0x03)
+	v.pushU64(0xa4)
+	v.addOp(MSTORE)
+
+	// string data
+	two := uint256.NewInt(0)
+	two.SetBytes([]byte{
+		0x61, 0x73, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	})
+	v.pushU256(two)
+	v.pushU64(0xc4)
+	v.addOp(MSTORE)
+
+	v.pushU64(0x64) // length
+	v.pushU64(0x80) // memory start
+	v.addOp(REVERT)
 }
 
 func fnSelector(v *BytecodeVisitor, _ *Scope, _ int, call Node) {
