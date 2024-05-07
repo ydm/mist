@@ -498,7 +498,7 @@ func fnReturn(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 }
 
 func fnRevert(v *BytecodeVisitor, s *Scope, esp int, call Node) {
-	// args := assertNargsEq("revert", call, 1)
+	args := assertNargsEq("revert", call, 1)
 
 	// v.pushU64(0x20)              // [20]
 	// esp += 1                     //
