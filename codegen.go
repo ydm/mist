@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/holiman/uint256"
 )
 
@@ -38,7 +39,7 @@ func (s segment) String() string {
 	if s.isData() {
 		fmt.Fprintf(&b, "data %s", s.data)
 	} else if s.isOpcode() {
-		fmt.Fprintf(&b, "op %v", OpCode(s.opcode))
+		fmt.Fprintf(&b, "op %v", vm.OpCode(s.opcode))
 	} else if s.isPointer() {
 		fmt.Fprintf(&b, "ptr to %d", s.pointer)
 	}
@@ -56,10 +57,10 @@ func newEmptySegment() segment {
 }
 
 func newSegmentJumpdest() segment {
-	return newSegmentOpCode(JUMPDEST)
+	return newSegmentOpCode(vm.JUMPDEST)
 }
 
-func newSegmentOpCode(op OpCode) segment {
+func newSegmentOpCode(op vm.OpCode) segment {
 	return segment{makeSegmentID(), int(op), "", 0}
 }
 
@@ -80,11 +81,11 @@ func (s *segment) isPointer() bool {
 }
 
 func (s *segment) isPush() bool {
-	return s.isOpcode() && OpCode(s.opcode).IsPush()
+	return s.isOpcode() && vm.OpCode(s.opcode).IsPush()
 }
 
 func (s *segment) isPop() bool {
-	return s.isOpcode() && OpCode(s.opcode) == POP
+	return s.isOpcode() && vm.OpCode(s.opcode) == vm.POP
 }
 
 func (s *segment) pointTo(pos int) {
@@ -92,7 +93,7 @@ func (s *segment) pointTo(pos int) {
 		panic("not a pointer")
 	}
 
-	code := fmt.Sprintf("%02x%04x", byte(PUSH2), pos)
+	code := fmt.Sprintf("%02x%04x", byte(vm.PUSH2), pos)
 	if len(code) != 6 {
 		panic("broken invariant")
 	}
@@ -152,7 +153,7 @@ func NewBytecodeVisitor(init bool) *BytecodeVisitor {
 		// memory layout as Solidity.
 		v.pushU64(freeMemoryInitial)
 		v.pushU64(freeMemoryPointer)
-		v.addOp(MSTORE)
+		v.addOp(vm.MSTORE)
 	}
 
 	return v
@@ -170,7 +171,7 @@ func (v *BytecodeVisitor) addCode(code string) {
 	v.addSegment(newSegmentData(code))
 }
 
-func (v *BytecodeVisitor) addOp(op OpCode) {
+func (v *BytecodeVisitor) addOp(op vm.OpCode) {
 	v.addSegment(newSegmentOpCode(op))
 }
 
@@ -207,7 +208,7 @@ func (v *BytecodeVisitor) pushU256(x *uint256.Int) {
 		panic("TODO")
 	}
 
-	op := OpCode(byte(PUSH0) + byte(length))
+	op := vm.OpCode(byte(vm.PUSH0) + byte(length))
 	v.addOp(op)
 	v.addU256(x)
 }
@@ -233,14 +234,14 @@ func (v *BytecodeVisitor) VisitString(n Node) {
 		panic("TODO")
 	}
 
-	encoded := Encode(n.ValueString)
+	encoded := EncodeRLP(n.ValueString)
 	length := len(encoded) / 2
 	if length > 32 {
 		// Still not supporting strings bigger than a single word.
 		panic("string literal is longer than 31 characters")
 	}
 
-	op := OpCode(byte(PUSH0) + byte(length))
+	op := vm.OpCode(byte(vm.PUSH0) + byte(length))
 	v.addOp(op)
 	v.addCode(encoded)
 }
@@ -258,7 +259,7 @@ func (v *BytecodeVisitor) VisitSymbol(s *Scope, esp int, symbol Node) {
 		if delta <= 0 {
 			panic("broken invariant")
 		}
-		opcode := OpCode(DUP1 + (delta - 1))
+		opcode := vm.OpCode(vm.DUP1 + (delta - 1))
 		// fmt.Printf(
 		// 	"var=%s pos=%d esp=%d delta=%d opcode=%s\n",
 		// 	symbol.ValueString,
@@ -279,7 +280,8 @@ func (v *BytecodeVisitor) VisitFunction(s *Scope, esp int, call Node) {
 		handleNativeFunc,
 		handleVariadicFunc,
 		handleBuiltinFunc,
-		handleDefined,
+		handleDefinedFunc,
+		handleMacro,
 	}
 
 	for _, handler := range handlers {

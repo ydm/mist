@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/ethereum/go-ethereum/core/vm"
 )
 
-func nargs(op OpCode) int {
+func nargs(op vm.OpCode) int {
 	if op.IsPush() {
-		return int(op - PUSH0)
+		return int(op - vm.PUSH0)
 	}
 
 	return 0
@@ -25,7 +27,7 @@ func Decompile(program string) string {
 
 		n := 0
 		if op.IsPush() {
-			n = int(op - PUSH0)
+			n = int(op - vm.PUSH0)
 		}
 
 		if n > 0 {
@@ -46,10 +48,10 @@ func Decompile(program string) string {
 	return out.String()
 }
 
-func parseOps(program string) []OpCode {
+func parseOps(program string) []vm.OpCode {
 	program = strings.TrimPrefix(program, "0x")
 
-	words := make([]OpCode, 0, 1024)
+	words := make([]vm.OpCode, 0, 1024)
 	for i := 0; i < len(program); i += 2 {
 		excerpt := program[i : i+2]
 
@@ -60,7 +62,7 @@ func parseOps(program string) []OpCode {
 		if word > 255 {
 			panic("TODO")
 		}
-		words = append(words, OpCode(word))
+		words = append(words, vm.OpCode(word))
 	}
 
 	return words

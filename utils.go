@@ -1,5 +1,12 @@
 package mist
 
-func isDigit(x byte) bool {
-	return '0' <= x && x <= '9'
+import "strings"
+
+func padRight32(hex string) string {
+	var b strings.Builder
+	b.WriteString(hex)
+	for i := len(hex); i < 64; i++ {
+		b.WriteRune('0')
+	}
+	return b.String()
 }

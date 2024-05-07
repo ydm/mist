@@ -10,8 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-// Encode in RLP.
-func Encode(x any) string {
+// EncodeRLP in RLP.
+func EncodeRLP(x any) string {
 	b := bytes.NewBuffer([]byte{})
 	if err := rlp.Encode(b, x); err != nil {
 		panic(err)

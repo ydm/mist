@@ -3,7 +3,7 @@ package mist
 import (
 	"fmt"
 
-	"github.com/holiman/uint256"
+	"github.com/ethereum/go-ethereum/core/vm"
 )
 
 func assertNargsEq(fn string, call Node, want int) []Node {
@@ -62,82 +62,82 @@ func handleNativeFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	fn := call.FunctionName()
 
 	var (
-		op  OpCode
+		op  vm.OpCode
 		inp int // Number of input stack words.
 		dir = 0
 	)
 
 	switch fn {
 	case "stop":
-		op, inp, dir = STOP, 0, -1
+		op, inp, dir = vm.STOP, 0, -1
 	// ADD is variadic.
 	// MUL is variadic.
 	case "-":
-		op, inp, dir = SUB, 2, -1
+		op, inp, dir = vm.SUB, 2, -1
 	case "/":
-		op, inp, dir = DIV, 2, -1
+		op, inp, dir = vm.DIV, 2, -1
 	// SDIV is NOT implemented.
 	case "%":
-		op, inp, dir = MOD, 2, -1
+		op, inp, dir = vm.MOD, 2, -1
 	// SMOD is NOT implemented.
 	case "+%":
-		op, inp, dir = ADDMOD, 3, -1
+		op, inp, dir = vm.ADDMOD, 3, -1
 	case "*%":
-		op, inp, dir = MULMOD, 3, -1
+		op, inp, dir = vm.MULMOD, 3, -1
 	case "**":
 		fallthrough
 	case "expt":
-		op, inp, dir = EXP, 2, -1
+		op, inp, dir = vm.EXP, 2, -1
 	// SIGNEXTEND is NOT implemented.
 	case "<":
-		op, inp, dir = LT, 2, -1
+		op, inp, dir = vm.LT, 2, -1
 	case ">":
-		op, inp, dir = GT, 2, -1
+		op, inp, dir = vm.GT, 2, -1
 	// SLT is NOT implemented.
 	// SGT is NOT implemented.
 	case "=":
-		op, inp, dir = EQ, 2, -1
+		op, inp, dir = vm.EQ, 2, -1
 	case "not":
 		fallthrough
 	case "zerop":
-		op, inp, dir = ISZERO, 1, -1
+		op, inp, dir = vm.ISZERO, 1, -1
 	// AND is variadic.
 	// OR is variadic.
 	// XOR is variadic.
 	case "~":
 		fallthrough
 	case "lognot":
-		op, inp, dir = NOT, 1, -1
+		op, inp, dir = vm.NOT, 1, -1
 	case "byte": // (byte byte-index word)
-		op, inp, dir = BYTE, 2, -1
+		op, inp, dir = vm.BYTE, 2, -1
 	case "<<": // (<< value count)
-		op, inp, dir = SHL, 2, 1
+		op, inp, dir = vm.SHL, 2, 1
 	case ">>": // (>> value count)
-		op, inp, dir = SHR, 2, 1
+		op, inp, dir = vm.SHR, 2, 1
 	// SAR is NOT implemented.
 	// KECCAK256 is NOT implemented.
 	case "address":
-		op, inp, dir = ADDRESS, 0, -1
+		op, inp, dir = vm.ADDRESS, 0, -1
 	case "balance":
-		op, inp, dir = BALANCE, 1, -1
+		op, inp, dir = vm.BALANCE, 1, -1
 	case "origin":
-		op, inp, dir = ORIGIN, 0, -1
+		op, inp, dir = vm.ORIGIN, 0, -1
 	case "caller":
-		op, inp, dir = CALLER, 0, -1
+		op, inp, dir = vm.CALLER, 0, -1
 	case "call-value":
-		op, inp, dir = CALLVALUE, 0, -1
+		op, inp, dir = vm.CALLVALUE, 0, -1
 	case "calldata-load": // (calldata-load word-index)
-		op, inp, dir = CALLDATALOAD, 1, -1
+		op, inp, dir = vm.CALLDATALOAD, 1, -1
 	case "calldata-size":
-		op, inp, dir = CALLDATASIZE, 0, -1
+		op, inp, dir = vm.CALLDATASIZE, 0, -1
 	// case "calldata-copy": // (calldata-copy mm-start id-offset length)
 	// 	op, nargs, dir = CALLDATACOPY, 3, -1
 	case "code-size":
-		op, inp, dir = CODESIZE, 0, -1
+		op, inp, dir = vm.CODESIZE, 0, -1
 	// case "code-copy": // (code-copy mm-start ib-offset length)
 	// 	op, nargs, dir = CODECOPY, 3, -1
 	case "gas-price":
-		op, inp, dir = GASPRICE, 0, -1
+		op, inp, dir = vm.GASPRICE, 0, -1
 	// EXTCODESIZE is NOT implemented.
 	// EXTCODECOPY is NOT implemented.
 	// RETURNDATASIZE is NOT implemented.
@@ -145,21 +145,21 @@ func handleNativeFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	// EXTCODEHASH is NOT implemented.
 	// BLOCKHASH is NOT implemented.
 	case "coinbase":
-		op, inp, dir = COINBASE, 0, -1
+		op, inp, dir = vm.COINBASE, 0, -1
 	case "timestamp":
-		op, inp, dir = TIMESTAMP, 0, -1
+		op, inp, dir = vm.TIMESTAMP, 0, -1
 	case "block-number":
-		op, inp, dir = NUMBER, 0, -1
+		op, inp, dir = vm.NUMBER, 0, -1
 	case "prev-randao":
-		op, inp, dir = PREVRANDAO, 0, -1
+		op, inp, dir = vm.PREVRANDAO, 0, -1
 	case "gas-limit":
-		op, inp, dir = GASLIMIT, 0, -1
+		op, inp, dir = vm.GASLIMIT, 0, -1
 	case "chain-id":
-		op, inp, dir = CHAINID, 0, -1
+		op, inp, dir = vm.CHAINID, 0, -1
 	case "self-balance":
-		op, inp, dir = SELFBALANCE, 0, -1
+		op, inp, dir = vm.SELFBALANCE, 0, -1
 	case "base-fee":
-		op, inp, dir = BASEFEE, 0, -1
+		op, inp, dir = vm.BASEFEE, 0, -1
 	// case "pop"
 	// case "mload"
 	// case "mstore"
@@ -171,7 +171,7 @@ func handleNativeFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	// case "program-counter": op, inp, dir = PC, 0, -1
 	// case "memory-size": op, inp, dir = MSIZE, 0, -1
 	case "available-gas":
-		op, inp, dir = GAS, 0, -1
+		op, inp, dir = vm.GAS, 0, -1
 	// case "jumpdest"
 	// case "push1..16"
 	// case "dup1..16"
@@ -205,28 +205,28 @@ func handleNativeFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 
 func handleVariadicFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	var (
-		op OpCode
+		op vm.OpCode
 		ok = false
 	)
 
 	fn := call.FunctionName()
 	switch fn {
 	case "+":
-		op, ok = ADD, true
+		op, ok = vm.ADD, true
 	case "*":
-		op, ok = MUL, true
+		op, ok = vm.MUL, true
 	case "&":
 		fallthrough
 	case "logand":
-		op, ok = AND, true
+		op, ok = vm.AND, true
 	case "|":
 		fallthrough
 	case "logior":
-		op, ok = OR, true
+		op, ok = vm.OR, true
 	case "^":
 		fallthrough
 	case "logxor":
-		op, ok = XOR, true
+		op, ok = vm.XOR, true
 	}
 
 	if !ok {
@@ -256,6 +256,9 @@ func handleBuiltinFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	case "and":
 		fnAnd(v, s, esp, call)
 		return true
+	case "case":
+		fnCase(v, s, esp, call)
+		return true
 	case "defconst":
 		fnDefconst(v, s, esp, call)
 		return true
@@ -277,18 +280,6 @@ func handleBuiltinFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	case "selector":
 		fnSelector(v, s, esp, call)
 		return true
-
-	//
-	// TODO: If I ever implement macros, these should be reimplemented!
-	//
-
-	case "unless":
-		fnUnless(v, s, esp, call)
-		return true
-	case "when":
-		fnWhen(v, s, esp, call)
-		return true
-
 	default:
 		return false
 	}
@@ -297,7 +288,7 @@ func handleBuiltinFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 // Right now (defun) functions are inlined in the code.  Perhaps I
 // should create a separate data segment for (defun) and introduce
 // (definline) for inline functions?
-func handleDefined(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
+func handleDefinedFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	ebp := esp
 
 	name := call.FunctionName()
@@ -339,9 +330,9 @@ func handleDefined(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	esp += 1
 
 	if len(fn.Args) > 0 {
-		v.addOp(OpCode(SWAP1 - 1 + len(fn.Args)))
+		v.addOp(vm.OpCode(vm.SWAP1 - 1 + len(fn.Args)))
 		for range fn.Args {
-			v.addOp(POP)
+			v.addOp(vm.POP)
 		}
 	}
 
@@ -362,23 +353,23 @@ func fnAnd(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 
 	last := len(args) - 1
 	for i := range args {
-		v.addOp(POP)
+		v.addOp(vm.POP)
 		esp -= 1
 
 		args[i].Accept(v, s, esp)
 		esp += 1
 
 		if i != last {
-			v.addOp(DUP1)
+			v.addOp(vm.DUP1)
 			esp += 1
 
-			v.addOp(ISZERO)
+			v.addOp(vm.ISZERO)
 			esp += 0
 
 			v.addPointer(after.id)
 			esp += 1
 
-			v.addOp(JUMPI)
+			v.addOp(vm.JUMPI)
 			esp -= 2
 		}
 	}
@@ -386,6 +377,80 @@ func fnAnd(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	if len(args) > 1 {
 		v.addSegment(after)
 	}
+}
+
+func fnCase(v *BytecodeVisitor, s *Scope, esp int, call Node) {
+	args := assertNargsGte("case", call, 1)
+
+	// Evaluate the given value.
+	args[0].Accept(v, s, esp) // [XX]
+	esp += 1
+
+	// If this (case) has no clauses, push 0 and that's it.
+	if len(args) <= 1 {
+		v.pushU64(0)
+		esp += 1
+		return
+	}
+
+	n := len(args) - 2
+	if n < 0 {
+		n = 0
+	}
+	labels := make([]segment, n)
+	for i := 0; i < n; i++ {
+		labels[i] = newSegmentJumpdest()
+	}
+
+	after := newSegmentJumpdest()
+
+	for i := 1; i < len(args); i++ {
+		clause := args[i]
+
+		if !clause.IsList() || clause.NumChildren() < 2 {
+			panic("TODO")
+		}
+
+		// Push the label first.  Each case except the first one is
+		// labeled.
+		if i >= 2 {
+			v.addSegment(labels[i-2])
+		}
+
+		// If values are not equal, jump to next clause.
+		v.addOp(vm.DUP1)                     // [XX XX]
+		esp += 1                             //
+		clause.Children[0].Accept(v, s, esp) // [YY XX XX]
+		esp += 1                             //
+		v.addOp(vm.EQ)                       // [EQ XX]
+		esp -= 1                             //
+		v.addOp(vm.ISZERO)                   // [!E XX]
+		esp += 0                             //
+		v.addPointer(labels[i-1].id)         // [NX !E XX]
+		esp += 1                             //
+		v.addOp(vm.JUMPI)                    // [XX]
+		esp -= 2                             //
+
+		// If we got here, then this is the right clause to execute.
+		// Evaluate the body.
+		progn := NewNodeProgn()                //
+		progn.AddChildren(clause.Children[1:]) //
+		progn.Accept(v, s, esp)                // [AA XX]
+		esp += 1                               //
+
+		// Jump to the `after` label.
+		v.addPointer(after.id) // [PP AA XX]
+		esp += 1               //
+		v.addOp(vm.JUMP)       // [AA XX]
+		esp -= 2               //
+	}
+
+	v.addSegment(after)
+
+	v.addOp(vm.SWAP1)			// [XX AA]
+	esp += 0					//
+	v.addOp(vm.POP)				// [AA]
+	esp -= 1					// 
 }
 
 func fnDefconst(v *BytecodeVisitor, s *Scope, _ int, call Node) {
@@ -426,7 +491,7 @@ func fnIf(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	// Jump to the `then` branch if condition holds.
 	dest := newSegmentJumpdest()
 	v.addPointer(dest.id) // esp += 1
-	v.addOp(JUMPI)        // esp -= 2
+	v.addOp(vm.JUMPI)     // esp -= 2
 	esp -= 1
 
 	// Otherwise, keep executing the `else` and jump after the `then`
@@ -434,7 +499,7 @@ func fnIf(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	no.Accept(v, s, esp) // Pushing `no`, esp += 1
 	after := newSegmentJumpdest()
 	v.addPointer(after.id) // esp += 1
-	v.addOp(JUMP)          // esp -= 1
+	v.addOp(vm.JUMP)       // esp -= 1
 
 	// Now add the `then`.
 	v.addSegment(dest)
@@ -466,7 +531,7 @@ func fnProgn(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 
 		if i != last {
 			// This is not the last expression, so discard its result.
-			v.addOp(POP)
+			v.addOp(vm.POP)
 			esp -= 1
 		} else {
 			// This is the last expression, keep it on the stack.
@@ -485,73 +550,78 @@ func fnReturn(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	esp += 1                     //
 	v.pushU64(freeMemoryPointer) // [FP 20]
 	esp += 1                     //
-	v.addOp(MLOAD)               // [FM 20]
+	v.addOp(vm.MLOAD)            // [FM 20]
 	esp += 0                     //
 	args[0].Accept(v, s, esp)    // [RV FM 20]
 	esp += 1                     //
-	v.addOp(DUP2)                // [FM RV FM 20]
+	v.addOp(vm.DUP2)             // [FM RV FM 20]
 	esp += 1                     //
-	v.addOp(MSTORE)              // [FM 20]
+	v.addOp(vm.MSTORE)           // [FM 20]
 	esp -= 2                     //
-	v.addOp(RETURN)              // []
+	v.addOp(vm.RETURN)           // []
 	esp -= 2                     //
 }
 
 func fnRevert(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	args := assertNargsEq("revert", call, 1)
 
-	// v.pushU64(0x20)              // [20]
-	// esp += 1                     //
-	// v.pushU64(freeMemoryPointer) // [FP 20]
-	// esp += 1                     //
-	// v.addOp(MLOAD)               // [FM 20]
-	// esp += 0                     //
-	// args[0].Accept(v, s, esp)    // [RV FM 20]
-	// esp += 1                     //
-	// v.addOp(DUP2)                // [FM RV FM 20]
-	// esp += 1                     //
-	// v.addOp(MSTORE)              // [FM 20]
-	// esp -= 2                     //
-	// v.addOp(REVERT)              // []
-	// esp -= 2                     //
+	if args[0].Type == NodeString {
+		encoded := EncodeWithSignature("Error(string)", args[0].ValueString)
 
-	// keccak256( "Error(string)" )[:4]
-	one := uint256.NewInt(0)
-	one.SetBytes([]byte{
-		0x08, 0xc3, 0x79, 0xa0, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	})
-	v.pushU256(one)
-	v.pushU64(0x80)
-	v.addOp(MSTORE)
+		// Load free memory pointer.
+		v.pushU64(freeMemoryPointer) // [FP]
+		esp += 1                     //
+		v.addOp(vm.MLOAD)            // [FM]
+		esp += 0                     //
 
-	// data offset
-	v.pushU64(0x20)
-	v.pushU64(0x84)
-	v.addOp(MSTORE)
+		// Push and store selector.
+		v.addOp(vm.PUSH32)                 //
+		v.addCode(padRight32(encoded[:8])) // [ER FM]
+		esp += 1                           //
+		v.addOp(vm.DUP2)                   // [FM ER FM]
+		esp += 1                           //
+		v.addOp(vm.MSTORE)                 // [FM], m[FM]=[ER]
+		esp -= 2                           //
 
-	// string length
-	v.pushU64(0x03)
-	v.pushU64(0xa4)
-	v.addOp(MSTORE)
+		// Push and store each word of 32 bytes (== 64 hex chars).
+		n := uint64(len(encoded))
+		for i := uint64(8); i < n; i += 64 {
+			word := encoded[i : i+64]
 
-	// string data
-	two := uint256.NewInt(0)
-	two.SetBytes([]byte{
-		0x61, 0x73, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	})
-	v.pushU256(two)
-	v.pushU64(0xc4)
-	v.addOp(MSTORE)
+			v.addOp(vm.PUSH32) //
+			v.addCode(word)    // [WO FM]
+			esp += 1           //
+			v.addOp(vm.DUP2)   // [FM WO FM]
+			esp += 1           //
+			v.pushU64(i / 2)   // [OF FM WO FM], OF stands for offset
+			esp += 1           //
+			v.addOp(vm.ADD)    // [FO WO FM], FO=FM+OF
+			esp -= 1           //
+			v.addOp(vm.MSTORE) // [FM], m[FO]=WO
+			esp -= 2           //
+		}
 
-	v.pushU64(0x64) // length
-	v.pushU64(0x80) // memory start
-	v.addOp(REVERT)
+		v.pushU64(n / 2)   //
+		esp += 1           // [LE FM], esp=2
+		v.addOp(vm.SWAP1)  // [FM LE], esp=2
+		v.addOp(vm.REVERT) //
+		esp -= 2           // [], esp=0
+	} else {
+		v.pushU64(0x20)              // [20]
+		esp += 1                     //
+		v.pushU64(freeMemoryPointer) // [FP 20]
+		esp += 1                     //
+		v.addOp(vm.MLOAD)            // [FM 20]
+		esp += 0                     //
+		args[0].Accept(v, s, esp)    // [RV FM 20]
+		esp += 1                     //
+		v.addOp(vm.DUP2)             // [FM RV FM 20]
+		esp += 1                     //
+		v.addOp(vm.MSTORE)           // [FM 20]
+		esp -= 2                     //
+		v.addOp(vm.REVERT)           // []
+		esp -= 2                     //
+	}
 }
 
 func fnSelector(v *BytecodeVisitor, _ *Scope, _ int, call Node) {
@@ -563,60 +633,8 @@ func fnSelector(v *BytecodeVisitor, _ *Scope, _ int, call Node) {
 
 	h := Keccak256Hash([]byte(args[0].ValueString))
 
-	v.addOp(PUSH4)
+	v.addOp(vm.PUSH4)
 	v.addCode(fmt.Sprintf("%02x%02x%02x%02x", h[0], h[1], h[2], h[3]))
-}
-
-func fnUnless(v *BytecodeVisitor, s *Scope, esp int, call Node) {
-	args := assertNargsGte("unless", call, 1)
-
-	// Prepare condition.
-	cond := args[0]
-
-	// Prepare the `then` branch by wrapping it in a `progn`.
-	body := args[1:]
-	then := NewNodeNil(NewOriginEmpty())
-
-	if len(body) > 0 {
-		then = NewNodeProgn()
-		then.AddChildren(body)
-	}
-
-	// Prepare the `else` branch.
-	noop := NewNodeNil(NewOriginEmpty())
-
-	replacement := NewNodeList(call.Origin)
-	replacement.AddChild(NewNodeSymbol("if", NewOriginEmpty()))
-	replacement.AddChild(cond)
-	replacement.AddChild(noop)
-	replacement.AddChild(then)
-	fnIf(v, s, esp, replacement)
-}
-
-func fnWhen(v *BytecodeVisitor, s *Scope, esp int, call Node) {
-	args := assertNargsGte("when", call, 1)
-
-	// Prepare condition.
-	cond := args[0]
-
-	// Prepare the `then` branch by wrapping it in a `progn`.
-	body := args[1:]
-	then := NewNodeNil(NewOriginEmpty())
-
-	if len(body) > 0 {
-		then = NewNodeProgn()
-		then.AddChildren(body)
-	}
-
-	// Prepare the `else` branch.
-	noop := NewNodeNil(NewOriginEmpty())
-
-	replacement := NewNodeList(call.Origin)
-	replacement.AddChild(NewNodeSymbol("if", NewOriginEmpty()))
-	replacement.AddChild(cond)
-	replacement.AddChild(then)
-	replacement.AddChild(noop)
-	fnIf(v, s, esp, replacement)
 }
 
 // +----------------------+
@@ -634,12 +652,12 @@ func MakeConstructor(deployedBytecode string) string {
 
 	length := len(deployedBytecode) / 2
 	v.pushU64(uint64(length)) // L
-	v.addOp(DUP1)             // L L
+	v.addOp(vm.DUP1)          // L L
 	v.addPointer(label.id)    // P L L
 	v.pushU64(0)              // 0 P L L
-	v.addOp(CODECOPY)         // (codecopy 0 P L)
+	v.addOp(vm.CODECOPY)      // (codecopy 0 P L)
 	v.pushU64(0)              // 0 L
-	v.addOp(RETURN)           // return M[0:L]
+	v.addOp(vm.RETURN)        // return M[0:L]
 	v.addSegment(label)
 
 	return v.String()

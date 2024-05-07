@@ -33,7 +33,7 @@ func TestScan(t *testing.T) {
 	t.Parallel()
 
 	// (selector "pause")
-	tokens, err := mist.Scan("(selector \"pause\")", "test")
+	tokens, err := mist.Scan(`(selector "pause")`, "test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +46,7 @@ func TestScan(t *testing.T) {
 	}
 
 	// (selector "pause()")
-	tokens, err = mist.Scan("(selector \"pause()\")", "test")
+	tokens, err = mist.Scan(`(selector "pause()")`, "test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func TestScan(t *testing.T) {
 	}
 
 	// (selector "pause();")
-	tokens, err = mist.Scan("(selector \"pause();\")", "test")
+	tokens, err = mist.Scan(`(selector "pause();")`, "test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +72,7 @@ func TestScan(t *testing.T) {
 	}
 
 	// (selector "")
-	tokens, err = mist.Scan("(selector \"\")", "test")
+	tokens, err = mist.Scan(`(selector "")`, "test")
 	if err != nil {
 		t.Fatal(err)
 	}

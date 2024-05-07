@@ -29,12 +29,8 @@ func newLexerState() lexerState {
 func (s *lexerState) transitionTo(state int) bool {
 	// Allowed transitions:
 	//
-	// code -> comment
-	// code -> string
-	//
-	// comment -> code
-	//
-	// string -> code
+	// code           -> comment|string
+	// comment|string -> code
 	switch s.state {
 	case lexerStateCode:
 		if state == lexerStateComment || state == lexerStateString {
@@ -105,7 +101,7 @@ func (t Token) Short() string {
 	case TokenNumber:
 		return fmt.Sprintf("number(%v)", t.ValueNumber)
 	case TokenString:
-		return fmt.Sprintf("string(\"%s\")", t.ValueString)
+		return fmt.Sprintf(`string("%s")`, t.ValueString)
 	case TokenSymbol:
 		return fmt.Sprintf("symbol(%s)", t.ValueString)
 	default:
@@ -198,7 +194,7 @@ func Scan(code string, filename string) (TokenIterator, error) {
 				return NewLexicalError(filename, builderLine, builderColumn, msg, built)
 			}
 
-			if strings.HasPrefix(built, "\"") && strings.HasSuffix(built, "\"") {
+			if strings.HasPrefix(built, `"`) && strings.HasSuffix(built, `"`) {
 				end := len(built) - 1
 				stripped := built[1:end]
 				pushToken(TokenString, stripped, nil, builderLine, builderColumn)
@@ -230,6 +226,10 @@ func Scan(code string, filename string) (TokenIterator, error) {
 			continue
 		} else if r == ';' && state.transitionTo(lexerStateComment) {
 			// Beginning of a comment.
+			continue
+		} else if r == '\n' && state.transitionTo(lexerStateCode) {
+			// Beginning of a new line.  We do not support multi-line
+			// comments or strings, so it's always code.
 			continue
 		}
 

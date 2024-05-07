@@ -5,7 +5,7 @@ func Compile(program, source string, init bool, offopt uint32) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	progn := Parse(&tokens)
 	optimized := OptimizeAST(progn, offopt)
 

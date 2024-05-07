@@ -11,7 +11,7 @@ import (
 func TestEncode(t *testing.T) {
 	t.Parallel()
 
-	have := mist.Encode("asd")
+	have := mist.EncodeRLP("asd")
 	want := "83617364"
 
 	if diff := cmp.Diff(have, want); diff != "" {

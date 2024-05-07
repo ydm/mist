@@ -160,8 +160,8 @@ func TestCompileSelector(t *testing.T) {
 	t.Parallel()
 
 	cases := []string{
-		"(selector \"pause()\")",
-		"(selector \"something()\")",
+		`(selector "pause()")`,
+		`(selector "something()")`,
 	}
 
 	want := []string{
@@ -176,8 +176,8 @@ func TestCompileString(t *testing.T) {
 	t.Parallel()
 
 	cases := []string {
-		"\"qwe\"",
-		"\"0123456789012345678901234567890\"",
+		`"qwe"`,
+		`"0123456789012345678901234567890"`,
 	}
 
 	want := []string{
