@@ -85,12 +85,8 @@ func parse(tokens *TokenIterator) Node {
 			panic("unbalanced parentheses")
 		case TokenQuote:
 			tokens.Next() // Consume the quote token.
-			quote := NewNodeList(next.Origin)
-			quote.AddChild(NewNodeSymbol("quote", next.Origin))
-			quote.AddChild(parse(tokens))
-			if quote.NumChildren() == 0 {
-				panic("wrong number of arguments for (quote): have 0, want at least 1")
-			}
+			child := parse(tokens)
+			quote := NewNodeQuote(child, next.Origin)
 			return quote
 		case TokenNumber:
 			fallthrough

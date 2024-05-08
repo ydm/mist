@@ -1,0 +1,3 @@
+;; -*- mode: emacs-lisp -*-
+
+(return (apply '+ '(1 2 3)))

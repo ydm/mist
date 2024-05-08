@@ -123,6 +123,16 @@ func NewNodeProgn() Node {
 	return progn
 }
 
+func NewNodeQuote(child Node, origin Origin) Node {
+	quote := NewNodeList(origin)
+	quote.AddChild(NewNodeSymbol("quote", origin))
+	quote.AddChild(child)
+	if quote.NumChildren() == 0 {
+		panic("wrong number of arguments for (quote): have 0, want at least 1")
+	}
+	return quote
+}
+
 // TODO: Maybe accepting (Node) is better?  And then:
 //
 // parent = parent.AddChil(child)

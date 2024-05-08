@@ -18,7 +18,7 @@ const (
 // | segment |
 // +---------+
 
-var _segmentID int32 //nolint:gochecknoglobals
+var _segmentID int32 = 0 //nolint:gochecknoglobals
 
 func makeSegmentID() int32 {
 	return atomic.AddInt32(&_segmentID, 1)

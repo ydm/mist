@@ -1,0 +1,4 @@
+;; -*- mode: emacs-lisp -*-
+
+(let ((x 0x1234))
+  (return x))

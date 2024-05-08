@@ -23,10 +23,10 @@ func assertNargsEq(fn string, call Node, want int) []Node {
 	}
 	if have := len(args); have != want {
 		panic(fmt.Sprintf(
-			"wrong number of arguments for (%s): have %d, want %d",
+			"wrong number of arguments for (%s): want %d, have %d",
 			fn,
-			have,
 			want,
+			have,
 		))
 	}
 	return args
@@ -35,11 +35,12 @@ func assertNargsEq(fn string, call Node, want int) []Node {
 func assertNargsGte(fn string, call Node, want int) []Node {
 	if call.NumChildren() < (want + 1) {
 		panic(fmt.Sprintf(
-			"%v: %s: have %d arguments, want at least %d",
+			"%v: %s: have %d arguments, want at least %d: %v",
 			call.Origin,
 			fn,
 			call.NumChildren(),
 			(want + 1),
+			&call,
 		))
 	}
 	name := call.FunctionName()
@@ -49,10 +50,10 @@ func assertNargsGte(fn string, call Node, want int) []Node {
 	}
 	if have := len(args); have < want {
 		panic(fmt.Sprintf(
-			"wrong number of arguments for (%s): have %d, want at least %d",
+			"wrong number of arguments for (%s): want at least %d, have %d",
 			fn,
-			have,
 			want,
+			have,
 		))
 	}
 	return args
@@ -281,9 +282,9 @@ func handleBuiltinFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	case "selector":
 		fnSelector(v, s, esp, call)
 		return true
-	case "setq":
-		fnSetq(v, s, esp, call)
-		return true
+	// case "setq":
+	// 	fnSetq(v, s, esp, call)
+	// 	return true
 	default:
 		return false
 	}
@@ -308,10 +309,10 @@ func handleDefinedFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 		panic(NewCompilationError(
 			call.Origin,
 			fmt.Sprintf(
-				"wrong number of arguments for (%s): have %d, want %d",
+				"wrong number of arguments for (%s): want %d, have %d",
 				fn.Name,
-				len(args),
 				len(fn.Args),
+				len(args),
 			),
 		))
 	}
