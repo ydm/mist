@@ -281,6 +281,9 @@ func handleBuiltinFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	case "selector":
 		fnSelector(v, s, esp, call)
 		return true
+	case "setq":
+		fnSetq(v, s, esp, call)
+		return true
 	default:
 		return false
 	}
@@ -312,6 +315,8 @@ func handleDefinedFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 			),
 		))
 	}
+
+	// TODO: LOL, ITERATE THEM AND PUSH THEM ONE BY ONE, NOT LIKE THAT!...
 
 	// Create a child scope and evaluate all arguments.
 	childScope := s.NewChildScope()
@@ -383,8 +388,8 @@ func fnAnd(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 func fnCase(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	args := assertNargsGte("case", call, 1)
 
-	// If the clause list doesn't end up with an (otherwise
-	// expression) leg, add (otherwise nil) manually.
+	// If the clause list doesn't end up with (otherwise expression),
+	// add (otherwise nil) manually.
 	hasOtherwise := false
 	for i := 1; i < len(args); i++ {
 		if !args[i].IsList() || args[i].NumChildren() < 2 {
@@ -484,9 +489,10 @@ func fnCase(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 		esp -= 2                     //
 
 		// If we reach this, values ARE equal and the clause
-		// body will be executed.  We do not tweak the esp
-		// from this point onward, otherwise we'd mess the
-		// jumps.
+		// body will be executed.
+		//
+		// NB: We do not tweak the esp from this point onward,
+		// otherwise we'd mess the jumps.
 		body.Accept(v, s, esp) // [RR XX]
 
 		// Jump to the `after` label.
@@ -699,6 +705,29 @@ func fnSelector(v *BytecodeVisitor, _ *Scope, _ int, call Node) {
 
 	v.addOp(vm.PUSH4)
 	v.addCode(fmt.Sprintf("%02x%02x%02x%02x", h[0], h[1], h[2], h[3]))
+}
+
+func fnSetq(v *BytecodeVisitor, s *Scope, esp int, call Node) {
+	// TODO
+
+	args := assertNargsEq("setq", call, 2)
+	ebp := esp
+
+	identifier := args[0]
+	expr := args[1]
+
+	if !identifier.IsSymbol() {
+		panic("TODO")
+	}
+
+	expr.Accept(v, s, esp)
+	esp += 1
+
+	s.SetStackVariable(identifier.ValueString, StackVariable{
+		Origin:     call.Origin,
+		Identifier: identifier.ValueString,
+		Position:   ebp,
+	})
 }
 
 // +----------------------+
