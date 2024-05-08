@@ -35,8 +35,9 @@ func assertNargsEq(fn string, call Node, want int) []Node {
 func assertNargsGte(fn string, call Node, want int) []Node {
 	if call.NumChildren() < (want + 1) {
 		panic(fmt.Sprintf(
-			"%v: have %d arguments, want at least %d",
+			"%v: %s: have %d arguments, want at least %d",
 			call.Origin,
+			fn,
 			call.NumChildren(),
 			(want + 1),
 		))
@@ -382,75 +383,138 @@ func fnAnd(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 func fnCase(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	args := assertNargsGte("case", call, 1)
 
-	// Evaluate the given value.
-	args[0].Accept(v, s, esp) // [XX]
-	esp += 1
+	// If the clause list doesn't end up with an (otherwise
+	// expression) leg, add (otherwise nil) manually.
+	hasOtherwise := false
+	for i := 1; i < len(args); i++ {
+		if !args[i].IsList() || args[i].NumChildren() < 2 {
+			panic(fmt.Sprintf(
+				"%v: wrong argument type for (case): want (key body...), have: %v",
+				call.Origin,
+				&args[i],
+			))
+		}
+		if args[i].Children[0].IsThisSymbol("otherwise") || args[i].Children[0].IsThisSymbol("t") {
+			hasOtherwise = true
+			if i != len(args)-1 {
+				// We do have an otherwise clause, but
+				// it's not last in the list.
+				panic("misplaced otherwise or t clause")
+			}
+		}
+	}
 
-	// If this (case) has no clauses, push 0 and that's it.
-	if len(args) <= 1 {
-		v.pushU64(0)
+	head := args[0]
+	tail := args[1:]
+	if !hasOtherwise {
+		otherwise := NewNodeList(NewOriginEmpty())
+		otherwise.AddChild(NewNodeSymbol("otherwise", NewOriginEmpty()))
+		otherwise.AddChild(NewNodeNil(NewOriginEmpty()))
+		tail = append(tail, otherwise)
+	}
+
+	// If this (case) has no clauses or just a single otherwise,
+	// push it without evaluating the switch value.
+	if len(tail) == 1 {
+		clause := tail[0]
+		body := clause.Children[1]
+		if clause.NumChildren() > 2 {
+			body = NewNodeProgn()
+			body.AddChildren(clause.Children[1:])
+		}
+		body.Accept(v, s, esp)
 		esp += 1
 		return
 	}
 
-	n := len(args) - 2
-	if n < 0 {
-		n = 0
-	}
-	labels := make([]segment, n)
-	for i := 0; i < n; i++ {
+	// Evaluate the given switch value.
+	head.Accept(v, s, esp) // [XX]
+	esp += 1
+
+	// For each clause after the first one there should be a
+	// label.  Indices correspond to clauses.  The very last one
+	// -- `after` -- is placed after the whole (case).
+	after := len(tail)
+	labels := make([]segment, after+1)
+	for i := 1; i < after+1; i++ {
 		labels[i] = newSegmentJumpdest()
 	}
 
-	after := newSegmentJumpdest()
+	// For all the clauses except the last one (which is always
+	// `otherwise`), compare the key and eventually execute the
+	// body.
+	last := len(tail) - 1
+	for i := 0; i < last; i++ {
+		// Starting stack is always [XX].
 
-	for i := 1; i < len(args); i++ {
-		clause := args[i]
-
+		clause := tail[i]
 		if !clause.IsList() || clause.NumChildren() < 2 {
 			panic("TODO")
 		}
 
-		// Push the label first.  Each case except the first one is
-		// labeled.
-		if i >= 2 {
-			v.addSegment(labels[i-2])
+		// Extract the key.
+		key := clause.Children[0]
+
+		// Extract the body.  If it's more than a single
+		// expression, wrap it all in a (progn).
+		body := clause.Children[1]
+		if clause.NumChildren() > 2 {
+			body = NewNodeProgn()
+			body.AddChildren(clause.Children[1:])
 		}
 
-		// If values are not equal, jump to next clause.
-		v.addOp(vm.DUP1)                     // [XX XX]
-		esp += 1                             //
-		clause.Children[0].Accept(v, s, esp) // [YY XX XX]
-		esp += 1                             //
-		v.addOp(vm.EQ)                       // [EQ XX]
-		esp -= 1                             //
-		v.addOp(vm.ISZERO)                   // [!E XX]
-		esp += 0                             //
-		v.addPointer(labels[i-1].id)         // [NX !E XX]
-		esp += 1                             //
-		v.addOp(vm.JUMPI)                    // [XX]
-		esp -= 2                             //
+		// Push the label first.  Each case except the first
+		// one is labeled.
+		if i >= 1 {
+			v.addSegment(labels[i])
+		}
 
-		// If we got here, then this is the right clause to execute.
-		// Evaluate the body.
-		progn := NewNodeProgn()                //
-		progn.AddChildren(clause.Children[1:]) //
-		progn.Accept(v, s, esp)                // [AA XX]
-		esp += 1                               //
+		// If values are not equal, jump to the next clause.
+		v.addOp(vm.DUP1)             // [XX XX]
+		esp += 1                     //
+		key.Accept(v, s, esp)        // [KY XX XX]
+		esp += 1                     //
+		v.addOp(vm.EQ)               // [EQ XX]
+		esp -= 1                     //
+		v.addOp(vm.ISZERO)           // [!E XX]
+		esp += 0                     //
+		v.addPointer(labels[i+1].id) // [NX !E XX]
+		esp += 1                     //
+		v.addOp(vm.JUMPI)            // [XX]
+		esp -= 2                     //
+
+		// If we reach this, values ARE equal and the clause
+		// body will be executed.  We do not tweak the esp
+		// from this point onward, otherwise we'd mess the
+		// jumps.
+		body.Accept(v, s, esp) // [RR XX]
 
 		// Jump to the `after` label.
-		v.addPointer(after.id) // [PP AA XX]
-		esp += 1               //
-		v.addOp(vm.JUMP)       // [AA XX]
-		esp -= 2               //
+		v.addPointer(labels[after].id) // [PP RR XX]
+		v.addOp(vm.JUMP)               // [RR XX]
 	}
 
-	v.addSegment(after)
+	// Handle the `otherwise` clause manually.  Stack is [XX].
+	if last > 0 {
+		v.addSegment(labels[last])
+	}
+	otherwise := tail[last]
+	body := otherwise.Children[1]
+	if otherwise.NumChildren() > 2 {
+		body = NewNodeProgn()
+		body.AddChildren(otherwise.Children[1:])
+	}
+	body.Accept(v, s, esp) // [RR XX]
 
-	v.addOp(vm.SWAP1)			// [XX AA]
-	esp += 0					//
-	v.addOp(vm.POP)				// [AA]
-	esp -= 1					// 
+	// Now the `after`.  Stack is always [RR XX], where RR is the
+	// result of the evaluated body and XX is the original switch
+	// value.
+	esp += 1                    // Only 1 body was executed.
+	v.addSegment(labels[after]) //
+	v.addOp(vm.SWAP1)           // [XX RR]
+	esp += 0                    //
+	v.addOp(vm.POP)             // [RR]
+	esp -= 1                    //
 }
 
 func fnDefconst(v *BytecodeVisitor, s *Scope, _ int, call Node) {

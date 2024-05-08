@@ -1,0 +1,4 @@
+;; -*- mode: emacs-lisp -*-
+
+; first clause, returns 0x10
+(return (case 0x1234 (0x1234 0x10) (otherwise 0x20)))

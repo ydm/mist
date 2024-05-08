@@ -63,6 +63,34 @@ func TestCompileAnd(t *testing.T) {
 	compileAndCompare(t, cases, want)	
 }
 
+func TestCompileCase(t *testing.T) {
+	t.Parallel()
+
+	cases := []string{
+		"(case 1)",
+		"(case 1 (1 0x10))",
+		"(case 1 (1 0x10) (otherwise 0))",
+		"(case 1 (1 0x10) (otherwise nil))",
+		"(case 1 (1 0x10) (t nil))",
+		"(case 2 (1 0x10) (2 0x20))",
+		"(case 0x1234 (otherwise 0x10))",
+		"(case 0x1234 (1 0x10) (otherwise 0x10))",
+	}
+
+	want := []string{
+		"6000",
+		"60018060011415610011576010610014565b60005b9050",
+		"60018060011415610011576010610014565b60005b9050",
+		"60018060011415610011576010610014565b60005b9050",
+		"60018060011415610011576010610014565b60005b9050",
+		"60028060011415610011576010610024565b8060021415610021576020610024565b60005b9050",
+		"6010",
+		"6112348060011415610012576010610015565b60105b9050",
+	}
+
+	compileAndCompare(t, cases, want)
+}
+
 func TestCompileComplex(t *testing.T) {
 	t.Parallel()
 

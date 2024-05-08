@@ -1,0 +1,3 @@
+;; -*- mode: emacs-lisp -*-
+
+(return (case 0x1234))                  ; no clauses, returns 0

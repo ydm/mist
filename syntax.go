@@ -4,7 +4,7 @@ import "fmt"
 
 func consume(tokens *TokenIterator, types ...int) Token {
 	if !tokens.HasNext() {
-		panic("TODO")
+		panic("incomplete code")
 	}
 
 	next := tokens.Peek()

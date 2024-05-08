@@ -277,11 +277,14 @@ func (v *BytecodeVisitor) VisitSymbol(s *Scope, esp int, symbol Node) {
 
 func (v *BytecodeVisitor) VisitFunction(s *Scope, esp int, call Node) {
 	handlers := []func(*BytecodeVisitor, *Scope, int, Node) bool{
+		// Custom functions have precedence over
+		// native/builtin.
+		handleDefinedFunc,
+
 		handleNativeFunc,
 		handleVariadicFunc,
 		handleBuiltinFunc,
-		handleDefinedFunc,
-		handleMacro,
+		handleMacroFunc,
 	}
 
 	for _, handler := range handlers {

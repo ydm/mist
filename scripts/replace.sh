@@ -1,6 +1,7 @@
 #!/bin/bash
 
-BYTECODE=$(go run cmd/mist.go <examples/something.mist)
+FILENAME=something.mist
+BYTECODE=$(go run cmd/mist.go <examples/${FILENAME})
 
 echo "bytecode: ${BYTECODE}"
 

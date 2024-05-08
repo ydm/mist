@@ -1,0 +1,20 @@
+;; -*- mode: emacs-lisp -*-
+
+(defun fn ()
+  (>> (calldata-load 0) 0xe0))
+
+(defun totalSupply ())
+(defun balanceOf ())
+(defun transfer ())
+(defun allowance ())
+(defun approve ())
+(defun transferFrom ())
+
+(case (fn)
+  ((selector "totalSupply()") (totalSupply))
+  ((selector "balanceOf(address)") (balanceOf))
+  ((selector "transfer(address,uint256)") (transfer))
+  ((selector "allowance(address,address)") (allowance))
+  ((selector "approve(address,uint256)") (approve))
+  ((selector "transferFrom(address,address,uint256)") (transferFrom))
+  (otherwise (revert "unrecognized function")))

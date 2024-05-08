@@ -3,7 +3,10 @@ package mist
 // Mist still doesn't have macros, but once it does, all of the
 // functions in this file should be rewritten.
 
-func handleMacro(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
+// TODO: Once I implement macros and (cond) is implemented, (case)
+// should be rewritten as a macro that translates to (cond).
+
+func handleMacroFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	fn := call.FunctionName()
 	switch fn {
 	case "unless":
