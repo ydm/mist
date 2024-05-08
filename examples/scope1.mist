@@ -1,0 +1,7 @@
+;; -*- mode: emacs-lisp -*-
+
+(defconst ~global~ 0x10)
+
+(defun fn () ~global~)
+
+(return (fn))

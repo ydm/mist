@@ -1,6 +1,6 @@
 #!/bin/bash
 
-FILENAME=something.mist
+FILENAME=scope2.mist
 BYTECODE=$(go run cmd/mist.go <examples/${FILENAME})
 
 echo "bytecode: ${BYTECODE}"

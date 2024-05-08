@@ -3,7 +3,7 @@
 (defun fn ()
   (>> (calldata-load 0) 0xe0))
 
-(defun totalSupply ())
+(defun totalSupply () (return 0))
 (defun balanceOf ())
 (defun transfer ())
 (defun allowance ())
