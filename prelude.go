@@ -2,8 +2,11 @@ package mist
 
 import (
 	"fmt"
+	"strings"
+	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/holiman/uint256"
 )
 
 func assertNargsEq(fn string, call Node, want int) []Node {
@@ -118,7 +121,7 @@ func handleNativeFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 		op, inp, dir = vm.SHR, 2, 1
 	// SAR is NOT implemented.
 	// KECCAK256 is NOT implemented.
-	case "address":
+	case "current-address":
 		op, inp, dir = vm.ADDRESS, 0, -1
 	case "balance":
 		op, inp, dir = vm.BALANCE, 1, -1
@@ -128,7 +131,7 @@ func handleNativeFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 		op, inp, dir = vm.CALLER, 0, -1
 	case "call-value":
 		op, inp, dir = vm.CALLVALUE, 0, -1
-	case "calldata-load": // (calldata-load word-index)
+	case "calldata-load": // (calldata-load byte-index)
 		op, inp, dir = vm.CALLDATALOAD, 1, -1
 	case "calldata-size":
 		op, inp, dir = vm.CALLDATASIZE, 0, -1
@@ -266,12 +269,24 @@ func handleBuiltinFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 		return true
 	case "defun":
 		fnDefun(v, s, esp, call)
-		return true // TODO
+		return true
+	case "defvar":
+		fnDefvar(v, s, esp, call)
+		return true
+	case "ether":
+		fnEther(v, s, esp, call)
+		return true
+	case "gethash": // (gethash key table)
+		fnGethash(v, s, esp, call)
+		return true
 	case "if":
 		fnIf(v, s, esp, call)
 		return true
 	case "progn":
 		fnProgn(v, s, esp, call)
+		return true
+	case "puthash": // (puthash key value table)
+		fnPuthash(v, s, esp, call)
 		return true
 	case "return": // (return value)
 		fnReturn(v, s, esp, call)
@@ -282,9 +297,9 @@ func handleBuiltinFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	case "selector":
 		fnSelector(v, s, esp, call)
 		return true
-	// case "setq":
-	// 	fnSetq(v, s, esp, call)
-	// 	return true
+	case "setq":
+		fnSetq(v, s, esp, call)
+		return true
 	default:
 		return false
 	}
@@ -551,6 +566,85 @@ func fnDefun(v *BytecodeVisitor, s *Scope, _ int, node Node) {
 	v.VisitNil()
 }
 
+var _storagePosition int32 = -1
+
+func fnDefvar(v *BytecodeVisitor, s *Scope, _ int, call Node) {
+	args := assertNargsEq("defvar", call, 2)
+
+	if !s.IsGlobal() {
+		panic("defvar can be used only globally")
+	}
+
+	if !args[0].IsSymbol() {
+		panic("TODO")
+	}
+	identifier := args[0].ValueString
+
+	s.SetStorageVariable(identifier, atomic.AddInt32(&_storagePosition, 1))
+
+	v.VisitNil()
+}
+
+func fnEther(v *BytecodeVisitor, _ *Scope, esp int, call Node) {
+	args := assertNargsEq("ether", call, 1)
+
+	if !args[0].IsString() {
+		panic("TODO")
+	}
+
+	inp := args[0].ValueString
+	sep := strings.Index(inp, ".")
+	if sep < 0 {
+		sep = len(inp)
+	}
+	val := inp + "000000000000000000"
+	rep := strings.Replace(val, ".", "", 1)
+	cut := rep[:sep+18]
+	ans, err := uint256.FromDecimal(cut)
+	if err != nil {
+		panic(err)
+	}
+
+	v.pushU256(ans)
+	esp += 1
+}
+
+func fnGethash(v *BytecodeVisitor, s *Scope, esp int, call Node) {
+	args := assertNargsEq("gethash", call, 2) // (gethash key table)
+
+	key := args[0]
+	if !args[1].IsSymbol() {
+		panic("TODO")
+	}
+	table := args[1].ValueString
+
+	pos, ok := s.GetStorageVariable(table)
+	if !ok {
+		panic("TODO, void variable")
+	}
+
+	key.Accept(v, s, esp)  // [KK]
+	esp += 1               //
+	v.pushU64(0x00)        // [00 KK]
+	esp += 1               //
+	v.addOp(vm.MSTORE)     // [], m[00]=KK
+	esp -= 2               //
+	v.pushU64(uint64(pos)) // [PP]
+	esp += 1               //
+	v.pushU64(0x20)        // [20 PP]
+	esp += 1               //
+	v.addOp(vm.MSTORE)     // [], m[20]=PP
+	esp -= 2               //
+	v.pushU64(0x40)        // [40]
+	esp += 1               //
+	v.pushU64(0x00)        // [00 40]
+	esp += 1               //
+	v.addOp(vm.KECCAK256)  // [HH]
+	esp -= 1               //
+	v.addOp(vm.SLOAD)      // [VV]
+	esp += 0               //
+}
+
 func fnIf(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	args := assertNargsEq("if", call, 3)
 	cond, yes, no := args[0], args[1], args[2]
@@ -612,6 +706,47 @@ func fnProgn(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	if esp != (ebp + 1) {
 		panic("broken invariant")
 	}
+}
+
+func fnPuthash(v *BytecodeVisitor, s *Scope, esp int, call Node) {
+	args := assertNargsEq("puthash", call, 3) // (puthash key value table)
+
+	key := args[0]
+	value := args[1]
+	if !args[2].IsSymbol() {
+		panic("TODO")
+	}
+	table := args[2].ValueString
+
+	pos, ok := s.GetStorageVariable(table)
+	if !ok {
+		panic("TODO, void variable")
+	}
+
+	value.Accept(v, s, esp) // [VV]
+	esp += 1                //
+	v.addOp(vm.DUP1)        // [VV VV]
+	esp += 1                //
+	key.Accept(v, s, esp)   // [KK VV VV]
+	esp += 1                //
+	v.pushU64(0x00)         // [00 KK VV VV]
+	esp += 1                //
+	v.addOp(vm.MSTORE)      // [VV VV], m[00]=KK
+	esp -= 2                //
+	v.pushU64(uint64(pos))  // [PP VV VV]
+	esp += 1                //
+	v.pushU64(0x20)         // [20 PP VV VV]
+	esp += 1                //
+	v.addOp(vm.MSTORE)      // [VV VV], m[20]=PP
+	esp -= 2                //
+	v.pushU64(0x40)         // [40 VV VV]
+	esp += 1                //
+	v.pushU64(0x00)         // [00 40 VV VV]
+	esp += 1                //
+	v.addOp(vm.KECCAK256)   // [HH VV VV]
+	esp -= 1                //
+	v.addOp(vm.SSTORE)      // [VV]
+	esp -= 2                //
 }
 
 func fnReturn(v *BytecodeVisitor, s *Scope, esp int, call Node) {
@@ -709,26 +844,31 @@ func fnSelector(v *BytecodeVisitor, _ *Scope, _ int, call Node) {
 }
 
 func fnSetq(v *BytecodeVisitor, s *Scope, esp int, call Node) {
-	// TODO
-
 	args := assertNargsEq("setq", call, 2)
-	ebp := esp
 
-	identifier := args[0]
-	expr := args[1]
-
-	if !identifier.IsSymbol() {
+	if !args[0].IsSymbol() {
 		panic("TODO")
 	}
+	identifier := args[0].ValueString
 
-	expr.Accept(v, s, esp)
+	pos, ok := s.GetStorageVariable(identifier)
+	if !ok {
+		panic("TODO, void variable")
+	}
+
+	// Evaluate the expression and push to stack.
+	args[1].Accept(v, s, esp) // [X]
 	esp += 1
 
-	s.SetStackVariable(identifier.ValueString, StackVariable{
-		Origin:     call.Origin,
-		Identifier: identifier.ValueString,
-		Position:   ebp,
-	})
+	v.addOp(vm.DUP1) // [X X]
+	esp += 1
+
+	// Push position.
+	v.pushU64(uint64(pos)) // [P X X]
+	esp += 1
+
+	v.addOp(vm.SSTORE) // [X]
+	esp -= 2
 }
 
 // +----------------------+

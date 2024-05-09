@@ -82,18 +82,20 @@ type StackVariable struct {
 }
 
 type Scope struct {
-	Constants map[string]Node
-	Functions map[string]LispFunction
-	StackVariables map[string]StackVariable
+	Constants        map[string]Node
+	Functions        map[string]LispFunction
+	StackVariables   map[string]StackVariable
+	StorageVariables map[string]int32
 
 	Parent *Scope
 }
 
 func NewScope(parent *Scope) *Scope {
 	return &Scope{
-		Constants:      make(map[string]Node),
-		Functions:      make(map[string]LispFunction),
-		StackVariables: make(map[string]StackVariable),
+		Constants:        make(map[string]Node),
+		Functions:        make(map[string]LispFunction),
+		StackVariables:   make(map[string]StackVariable),
+		StorageVariables: make(map[string]int32),
 
 		Parent: parent,
 	}
@@ -105,6 +107,10 @@ func NewGlobalScope() *Scope {
 
 func (s *Scope) NewChildScope() *Scope {
 	return NewScope(s)
+}
+
+func (s *Scope) IsGlobal() bool {
+	return s.Parent == nil
 }
 
 // +---------+
@@ -135,6 +141,14 @@ func (s *Scope) GetStackVariable(identifier string) (StackVariable, bool) {
 	return variable, ok
 }
 
+func (s *Scope) GetStorageVariable(identifier string) (int32, bool) {
+	pos, ok := s.StorageVariables[identifier]
+	if !ok && s.Parent != nil {
+		return s.Parent.GetStorageVariable(identifier)
+	}
+	return pos, ok
+}
+
 // +---------+
 // | Setters |
 // +---------+
@@ -159,6 +173,6 @@ func (s *Scope) SetStackVariable(identifier string, variable StackVariable) {
 	s.StackVariables[identifier] = variable
 }
 
-// func (s *Scope) Setq(name string, value Node) {
-// 	s.Variables[name] = value
-// }
+func (s *Scope) SetStorageVariable(name string, position int32) {
+	s.StorageVariables[name] = position
+}

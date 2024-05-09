@@ -1,0 +1,6 @@
+;; -*- mode: emacs-lisp -*-
+
+(defconst x 0x1234)
+
+(let ((x 0x4321))
+  (return x))

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-FILENAME=let1.mist
+FILENAME=token.mist
 BYTECODE=$(go run cmd/mist.go <examples/${FILENAME})
 
 echo "bytecode: ${BYTECODE}"

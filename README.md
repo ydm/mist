@@ -27,7 +27,7 @@ Mapped to instructions
   - (byte)
   - (<<)
   - (>>)
-  - (address)
+  - (current-address)
   - (balance)
   - (origin)
   - (caller)
@@ -47,13 +47,13 @@ Mapped to instructions
   - (available-gas)
 
 Variadic:
-  - (+ )
-  - (* )
+  - (+)
+  - (*)
   - (&) (logand)
   - (|) (logior)
   - (&) (logxor)
 
-Builtins:
+Builtins (TODO):
   - (defconst)
   - (defun)
   - (if)
@@ -63,7 +63,10 @@ Builtins:
   - (unless)
   - (when)
 
-These functions do not result in an expression:
+Macros (TODO):
+  - TODO
+
+These are the only functions do not result in an expression:
   - `(stop)`
   - `(return x)`
   - `(revert x)`

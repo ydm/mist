@@ -247,14 +247,7 @@ func (v *BytecodeVisitor) VisitString(n Node) {
 }
 
 func (v *BytecodeVisitor) VisitSymbol(s *Scope, esp int, symbol Node) {
-	node, ok := s.GetConstant(symbol.ValueString)
-	if ok {
-		node.Accept(v, s, esp)
-		return
-	}
-
-	variable, ok := s.GetStackVariable(symbol.ValueString)
-	if ok {
+	if variable, ok := s.GetStackVariable(symbol.ValueString); ok {
 		delta := esp - variable.Position
 		if delta <= 0 {
 			panic("broken invariant")
@@ -269,6 +262,17 @@ func (v *BytecodeVisitor) VisitSymbol(s *Scope, esp int, symbol Node) {
 		// 	opcode,
 		// )
 		v.addOp(opcode)
+		return
+	}
+
+	if pos, ok := s.GetStorageVariable(symbol.ValueString); ok {
+		v.pushU64(uint64(pos))
+		v.addOp(vm.SLOAD)
+		return
+	}
+
+	if node, ok := s.GetConstant(symbol.ValueString); ok {
+		node.Accept(v, s, esp)
 		return
 	}
 

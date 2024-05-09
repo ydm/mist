@@ -81,16 +81,28 @@ func fnApply(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	ans.Accept(v, s, esp)
 }
 
+// Transforms
+//
+// (dispatch ("totalSupply()" 'totalSupply))
+//
+// to
+//
+// (case (>> (calldata-load 0) 0xe0)
+//   ((selector "totalSupply()") (totalSupply))
+//   (otherwise (revert "unrecognized function")))
+func fnDispatch(v *BytecodeVisitor, s *Scope, esp int, call Node) {
+	// TODO
+}
+
 var _lambdaCounter uint32 = 0 //nolint:gochecknoglobals
 
 func makeUniqueLambdaName() string {
 	return fmt.Sprintf("lambda%d", atomic.AddUint32(&_lambdaCounter, 1))
 }
 
-// Translate (let varlist body...), where varlist is
+// Transforms (let varlist body...), where varlist is
 // ((key1 value1)
-//
-//	(key2 value2))
+//  (key2 value2))
 //
 // to
 //

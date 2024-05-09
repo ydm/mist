@@ -1,11 +1,15 @@
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 
-const { MAINNET }: { MAINNET: string } = process.env;
+function getenv(name: string): string {
+    return "" + process.env[name]
+}
+
+const MAINNET: string = getenv("MAINNET")
 const HOLESKY: string = "https://ethereum-holesky-rpc.publicnode.com";
 
 function accounts(): string[] {
-    const { PRIVATE_KEY }: { PRIVATE_KEY: string } = process.env;
+    const PRIVATE_KEY = getenv("PRIVATE_KEY");
 
     if (PRIVATE_KEY && !/[0-9a-fA-F]{64}/.test(PRIVATE_KEY)) {
         throw new Error();
@@ -17,6 +21,11 @@ function accounts(): string[] {
 
 const config: HardhatUserConfig = {
     networks: {
+        mainnet: {
+            chainId: 1,
+            url: MAINNET,
+            accounts: accounts(),
+        },
         holesky: {
             chainId: 17000,
             url: HOLESKY,
@@ -27,6 +36,9 @@ const config: HardhatUserConfig = {
                 enabled: true,
                 url: HOLESKY,
             },
+        },
+        node: {
+            url: "http://127.0.0.1:8545",
         },
     },
     solidity: {

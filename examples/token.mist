@@ -1,20 +1,86 @@
 ;; -*- mode: emacs-lisp -*-
 
-(defun fn ()
-  (>> (calldata-load 0) 0xe0))
+;; +---------+
+;; | Storage |
+;; +---------+
 
-(defun totalSupply () (return 0))
-(defun balanceOf ())
-(defun transfer ())
-(defun allowance ())
-(defun approve ())
-(defun transferFrom ())
+(defvar _balances (mapping address uint256))
+(defvar _balances (mapping address (mapping address uint256)))
+(defvar _totalSupply uint256)
 
-(case (fn)
+;; +-----------+
+;; | Modifiers |
+;; +-----------+
+
+(defun not-payable ()
+  (when (call-value)
+    (revert "function is not payable")))
+
+;; +------------------+
+;; | Public functions |
+;; +------------------+
+
+(defun mint ()
+  (not-payable)
+  (defconst max (ether "15803"))        ; 3dbb
+  (unless (< _totalSupply max)
+    (revert "maximum token limit reached"))
+  (setq _totalSupply
+        (puthash (caller)
+                 (+ (gethash (caller) _balances) (ether "1"))
+                 _balances)))
+
+(defun totalSupply ()
+  (return _totalSupply))
+
+(defun balanceOf (address)
+  (return (gethash address _balances)))
+
+(defun transfer (to value)
+  (not-payable))
+
+(defun allowance (owner spender))
+
+(defun approve (spender value)
+  (not-payable)
+  )
+
+(defun transferFrom (from to value)
+  (not-payable)
+  )
+
+;; +--------+
+;; | Switch |
+;; +--------+
+
+(defun assert-address (address)
+  (defconst address-mask 0xffffffffffffffffffffffffffffffffffffffff) ; 2^160 - 1
+  (let ((masked (logand address address-mask)))
+    (if (= address masked)
+        address
+      (revert "invalid address"))))
+
+(defun callarg1 () (calldata-load 0x4 ))
+(defun callarg2 () (calldata-load 0x24))
+(defun callarg3 () (calldata-load 0x44))
+
+(case (>> (calldata-load 0) 0xe0)
+  ;; IERC20
+  ((selector "mint()") (mint))
   ((selector "totalSupply()") (totalSupply))
-  ((selector "balanceOf(address)") (balanceOf))
-  ((selector "transfer(address,uint256)") (transfer))
-  ((selector "allowance(address,address)") (allowance))
-  ((selector "approve(address,uint256)") (approve))
-  ((selector "transferFrom(address,address,uint256)") (transferFrom))
+  ((selector "balanceOf(address)") (balanceOf (assert-address (callarg1))))
+  ((selector "transfer(address,uint256)") (transfer (assert-address (callarg1))
+                                                    (callarg2)))
+  ((selector "allowance(address,address)") (allowance (assert-address (callarg1))
+                                                      (assert-address (callarg2))))
+  ((selector "approve(address,uint256)") (approve (assert-address (callarg1))
+                                                  (callarg2)))
+  ((selector "transferFrom(address,address,uint256)") (transferFrom (assert-address (callarg1))
+                                                                    (assert-address (callarg2))
+                                                                    (callarg3)))
+  ;; IERC20Metadata
+  ((selector "name()") (return "Emacs Lisp Token")) ; TODO
+  ((selector "symbol()") (return "ELT")) ; TODO
+  ((selector "decimals()") (return 18))
+  ;;
   (otherwise (revert "unrecognized function")))
