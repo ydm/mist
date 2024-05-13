@@ -12,7 +12,7 @@
 ;; | Modifiers |
 ;; +-----------+
 
-(defun not-payable ()
+(defun notPayable ()
   (when (call-value)
     (revert "function is not payable")))
 
@@ -20,11 +20,23 @@
 ;; | Helpers |
 ;; +---------+
 
-(defun assert-address (address)
+(defun _assertAddress (address)
+  (when (= address 0)
+    (revert "zero address"))
   (defconst address-mask 0xffffffffffffffffffffffffffffffffffffffff) ; 2^160 - 1
   (let ((masked (logand address address-mask)))
     (unless (= address masked)
       (revert "invalid address"))))
+
+(defun _update (from to value)
+  (let ((fromBalance (balanceOf from))
+        (toBalance   (balanceOf to  )))
+    (when (< fromBalance value)
+      (revert "insufficient balance"))
+    (puthash _balances (- fromBalance value) from)
+    (puthash _balances (+ toBalance   value) to  )
+    ;; TODO: (emit Transfer)
+    ))
 
 ;; +------------------+
 ;; | Public functions |
@@ -33,55 +45,50 @@
 (defun totalSupply () _totalSupply)
 
 (defun balanceOf (address)
-  (assert-address address)
+  ;; TODO: Should that be non-payable?
+  (_assertAddress address)
   (gethash _balances address))
 
 (defun transfer (to value)
-  (not-payable)
-  (assert-address to)
-  (not-payable))
+  (notPayable)
+  (_assertAddress to)
+  (notPayable))
 
 (defun allowance (owner spender)
-  (assert-address owner)
-  (assert-address spender)
+  (_assertAddress owner)
+  (_assertAddress spender)
   (gethash _allowances owner spender))
 
 (defun approve (spender value)
-  (not-payable)
-  (assert-address spender)
+  (notPayable)
+  (_assertAddress spender)
   (puthash _allowances value (caller) spender))
 
 (defun transferFrom (from to value)
-  (not-payable)
-  (assert-address from)
-  (assert-address to)
-
+  (notPayable)
+  (_assertAddress from)
+  (_assertAddress to)
+  
   (unless (<= value (allowance from (caller)))
-    (revert "not allowed"))
-
+    (revert "TODO: not allowed"))
+  
   (unless (<= value (balanceOf from))
-    (revert "not enough"))
-
-  (puthash _balances
-           (- (gethash _balances from) value)
-           from)
-  (puthash _balances
-           (+ (gethash _balances to) value)
-           to))
+    (revert "TODO: not enough"))
+  
+  (_update from to value))
 
 (defun name () (revert "Emacs Lisp Token"))
 (defun symbol () (revert "ELT"))
 (defun decimals () 18)
 
 (defun mint ()
-  (not-payable)
+  (notPayable)
   (unless (< _totalSupply (ether "15803")) ; 3dbb
     (revert "maximum token limit reached"))
-  (setq _totalSupply
-        (puthash _balances
-                 (+ (gethash _balances (caller))
-                    (ether "1"))
-                 (caller))))
+  (puthash _balances
+           (+ (gethash _balances (caller)) (ether "1"))
+           (caller))
+  (setq _totalSupply (+ _totalSupply (ether "1"))))
 
 (dispatch
  ;; IERC20

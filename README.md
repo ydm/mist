@@ -73,3 +73,9 @@ These are the only functions do not result in an expression:
 
 Limitations:
   - Code length can never exceed 2^16 bytes (64 megabytes).
+
+TODO:
+  - Implement a code segment.
+  - Implement real macros.
+  - Optimizations:
+    - Remove pairs of IFZERO IFZERO?
