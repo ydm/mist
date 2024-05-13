@@ -30,11 +30,10 @@
                  (+ (gethash (caller) _balances) (ether "1"))
                  _balances)))
 
-(defun totalSupply ()
-  (return _totalSupply))
+(defun totalSupply () _totalSupply)
 
 (defun balanceOf (address)
-  (return (gethash address _balances)))
+  (gethash address _balances))
 
 (defun transfer (to value)
   (not-payable))
@@ -66,21 +65,35 @@
 
 (case (>> (calldata-load 0) 0xe0)
   ;; IERC20
-  ((selector "mint()") (mint))
-  ((selector "totalSupply()") (totalSupply))
-  ((selector "balanceOf(address)") (balanceOf (assert-address (callarg1))))
-  ((selector "transfer(address,uint256)") (transfer (assert-address (callarg1))
-                                                    (callarg2)))
-  ((selector "allowance(address,address)") (allowance (assert-address (callarg1))
-                                                      (assert-address (callarg2))))
-  ((selector "approve(address,uint256)") (approve (assert-address (callarg1))
-                                                  (callarg2)))
-  ((selector "transferFrom(address,address,uint256)") (transferFrom (assert-address (callarg1))
-                                                                    (assert-address (callarg2))
-                                                                    (callarg3)))
+  ((selector "mint()")
+   (mint))
+  
+  ((selector "totalSupply()")
+   (return (totalSupply)))
+  
+  ((selector "balanceOf(address)")
+   (return (balanceOf (assert-address (callarg1)))))
+
+  ((selector "transfer(address,uint256)")
+   (transfer (assert-address (callarg1))
+             (callarg2)))
+
+  ((selector "allowance(address,address)")
+   (return (allowance (assert-address (callarg1))
+                      (assert-address (callarg2)))))
+
+  ((selector "approve(address,uint256)")
+   (approve (assert-address (callarg1))
+            (callarg2)))
+
+  ((selector "transferFrom(address,address,uint256)")
+   (transferFrom (assert-address (callarg1))
+                 (assert-address (callarg2))
+                 (callarg3)))
+
   ;; IERC20Metadata
-  ((selector "name()") (return "Emacs Lisp Token")) ; TODO
-  ((selector "symbol()") (return "ELT")) ; TODO
+  ((selector "name()")     (return "Emacs Lisp Token")) ; TODO
+  ((selector "symbol()")   (return "ELT")) ; TODO
   ((selector "decimals()") (return 18))
-  ;;
+
   (otherwise (revert "unrecognized function")))
