@@ -230,6 +230,7 @@ func Scan(code string, filename string) (TokenIterator, error) {
 		} else if r == '\n' && state.transitionTo(lexerStateCode) {
 			// Beginning of a new line.  We do not support multi-line
 			// comments or strings, so it's always code.
+			state.newLine(i)
 			continue
 		}
 

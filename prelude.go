@@ -276,7 +276,7 @@ func handleBuiltinFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	case "ether":
 		fnEther(v, s, esp, call)
 		return true
-	case "gethash": // (gethash key table)
+	case "gethash": // (gethash table keys...)
 		fnGethash(v, s, esp, call)
 		return true
 	case "if":
@@ -285,7 +285,7 @@ func handleBuiltinFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	case "progn":
 		fnProgn(v, s, esp, call)
 		return true
-	case "puthash": // (puthash key value table)
+	case "puthash": // (puthash table value keys...)
 		fnPuthash(v, s, esp, call)
 		return true
 	case "return": // (return value)
@@ -331,8 +331,6 @@ func handleDefinedFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 			),
 		))
 	}
-
-	// TODO: LOL, ITERATE THEM AND PUSH THEM ONE BY ONE, NOT LIKE THAT!...
 
 	// Create a child scope and evaluate all arguments.
 	childScope := s.NewChildScope()
@@ -610,39 +608,43 @@ func fnEther(v *BytecodeVisitor, _ *Scope, esp int, call Node) {
 }
 
 func fnGethash(v *BytecodeVisitor, s *Scope, esp int, call Node) {
-	args := assertNargsEq("gethash", call, 2) // (gethash key table)
+	args := assertNargsGte("gethash", call, 2) // (gethash table keys...)
 
-	key := args[0]
-	if !args[1].IsSymbol() {
+	if !args[0].IsSymbol() {
 		panic("TODO")
 	}
-	table := args[1].ValueString
-
+	table := args[0].ValueString
 	pos, ok := s.GetStorageVariable(table)
 	if !ok {
 		panic("TODO, void variable")
 	}
 
-	key.Accept(v, s, esp)  // [KK]
-	esp += 1               //
-	v.pushU64(0x00)        // [00 KK]
-	esp += 1               //
-	v.addOp(vm.MSTORE)     // [], m[00]=KK
-	esp -= 2               //
 	v.pushU64(uint64(pos)) // [PP]
-	esp += 1               //
-	v.pushU64(0x20)        // [20 PP]
-	esp += 1               //
-	v.addOp(vm.MSTORE)     // [], m[20]=PP
-	esp -= 2               //
-	v.pushU64(0x40)        // [40]
-	esp += 1               //
-	v.pushU64(0x00)        // [00 40]
-	esp += 1               //
-	v.addOp(vm.KECCAK256)  // [HH]
-	esp -= 1               //
-	v.addOp(vm.SLOAD)      // [VV]
-	esp += 0               //
+	esp += 1               //  --> esp=1
+
+	for i := 1; i < len(args); i++ {
+		key := args[i]
+
+		v.pushU64(20)         // [20 PP]
+		esp += 1              //  --> esp=2
+		v.addOp(vm.MSTORE)    // [], m[20]=PP
+		esp -= 2              //  --> esp=0
+		key.Accept(v, s, esp) // [KK]
+		esp += 1              //  --> esp=1
+		v.pushU64(0)          // [00 KK]
+		esp += 1              //  --> esp=2
+		v.addOp(vm.MSTORE)    // [], m[00]=KK
+		esp -= 2              //  --> esp=0
+		v.pushU64(0x40)       // [40]
+		esp += 1              //  --> esp=1
+		v.pushU64(0x00)       // [00 40]
+		esp += 1              //  --> esp=2
+		v.addOp(vm.KECCAK256) // [HH]
+		esp -= 1              //  --> esp=1
+	}
+
+	v.addOp(vm.SLOAD) // [VV]
+	esp += 0          //  --> esp=1
 }
 
 func fnIf(v *BytecodeVisitor, s *Scope, esp int, call Node) {
@@ -709,14 +711,14 @@ func fnProgn(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 }
 
 func fnPuthash(v *BytecodeVisitor, s *Scope, esp int, call Node) {
-	args := assertNargsEq("puthash", call, 3) // (puthash key value table)
+	args := assertNargsGte("puthash", call, 3) // (puthash table value keys...)
 
-	key := args[0]
-	value := args[1]
-	if !args[2].IsSymbol() {
+	if !args[0].IsSymbol() {
 		panic("TODO")
 	}
-	table := args[2].ValueString
+	table := args[0].ValueString
+
+	value := args[1]
 
 	pos, ok := s.GetStorageVariable(table)
 	if !ok {
@@ -724,29 +726,35 @@ func fnPuthash(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	}
 
 	value.Accept(v, s, esp) // [VV]
-	esp += 1                //
+	esp += 1                //  --> esp=1
 	v.addOp(vm.DUP1)        // [VV VV]
-	esp += 1                //
-	key.Accept(v, s, esp)   // [KK VV VV]
-	esp += 1                //
-	v.pushU64(0x00)         // [00 KK VV VV]
-	esp += 1                //
-	v.addOp(vm.MSTORE)      // [VV VV], m[00]=KK
-	esp -= 2                //
+	esp += 1                //  --> esp=2
 	v.pushU64(uint64(pos))  // [PP VV VV]
-	esp += 1                //
-	v.pushU64(0x20)         // [20 PP VV VV]
-	esp += 1                //
-	v.addOp(vm.MSTORE)      // [VV VV], m[20]=PP
-	esp -= 2                //
-	v.pushU64(0x40)         // [40 VV VV]
-	esp += 1                //
-	v.pushU64(0x00)         // [00 40 VV VV]
-	esp += 1                //
-	v.addOp(vm.KECCAK256)   // [HH VV VV]
-	esp -= 1                //
-	v.addOp(vm.SSTORE)      // [VV]
-	esp -= 2                //
+	esp += 1                //  --> esp=3
+
+	for i := 2; i < len(args); i++ {
+		key := args[i]
+
+		v.pushU64(20)         // [20 PP VV VV]
+		esp += 1              //  --> esp=4
+		v.addOp(vm.MSTORE)    // [VV VV], m[20]=PP
+		esp -= 2              //  --> esp=2
+		key.Accept(v, s, esp) // [KK VV VV]
+		esp += 1              //  --> esp=3
+		v.pushU64(0)          // [00 KK VV VV]
+		esp += 1              //  --> esp=4
+		v.addOp(vm.MSTORE)    // [VV VV], m[00]=KK
+		esp -= 2              //  --> esp=2
+		v.pushU64(0x40)       // [40 VV VV]
+		esp += 1              //  --> esp=3
+		v.pushU64(0x00)       // [00 40 VV VV]
+		esp += 1              //  --> esp=4
+		v.addOp(vm.KECCAK256) // [HH VV VV]
+		esp -= 1              //  --> esp=3
+	}
+
+	v.addOp(vm.SSTORE)	// [VV], s[HH]=VV
+	esp -= 2		//  --> esp=1
 }
 
 func fnReturn(v *BytecodeVisitor, s *Scope, esp int, call Node) {

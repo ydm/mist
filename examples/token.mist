@@ -5,7 +5,7 @@
 ;; +---------+
 
 (defvar _balances (mapping address uint256))
-(defvar _balances (mapping address (mapping address uint256)))
+(defvar _allowances (mapping address (mapping address uint256)))
 (defvar _totalSupply uint256)
 
 ;; +-----------+
@@ -16,48 +16,74 @@
   (when (call-value)
     (revert "function is not payable")))
 
+;; +---------+
+;; | Helpers |
+;; +---------+
+
+(defun assert-address (address)
+  (defconst address-mask 0xffffffffffffffffffffffffffffffffffffffff) ; 2^160 - 1
+  (let ((masked (logand address address-mask)))
+    (unless (= address masked)
+      (revert "invalid address"))))
+
 ;; +------------------+
 ;; | Public functions |
 ;; +------------------+
 
 (defun mint ()
   (not-payable)
-  (defconst max (ether "15803"))        ; 3dbb
-  (unless (< _totalSupply max)
+  (unless (< _totalSupply (ether "15803")) ; 3dbb
     (revert "maximum token limit reached"))
   (setq _totalSupply
-        (puthash (caller)
-                 (+ (gethash (caller) _balances) (ether "1"))
-                 _balances)))
+        (puthash _balances
+                 (+ (gethash _balances (caller))
+                    (ether "1"))
+                 (caller))))
 
 (defun totalSupply () _totalSupply)
 
 (defun balanceOf (address)
-  (gethash address _balances))
+  (assert-address address)
+  (gethash _balances address))
 
 (defun transfer (to value)
+  (not-payable)
+  (assert-address to)
   (not-payable))
 
-(defun allowance (owner spender))
+(defun allowance (owner spender)
+  (assert-address owner)
+  (assert-address spender)
+  (gethash _allowances owner spender))
 
 (defun approve (spender value)
   (not-payable)
-  )
+  (assert-address spender)
+  (puthash _allowances value (caller) spender))
 
 (defun transferFrom (from to value)
   (not-payable)
+  (assert-address from)
+  (assert-address to)
+
+  ;; TODO: IMPLEMENT <=
+  (unless (< value (allowance from (caller)))
+    (revert "not allowed"))
+
+  (unless (< value (balanceOf from))
+    (revert "not enough"))
+
+  (puthash _balances
+           (- (gethash _balances from) value)
+           from)
+  (puthash _balances
+           (+ (gethash _balances to) value)
+           to)
   )
 
 ;; +--------+
 ;; | Switch |
 ;; +--------+
-
-(defun assert-address (address)
-  (defconst address-mask 0xffffffffffffffffffffffffffffffffffffffff) ; 2^160 - 1
-  (let ((masked (logand address address-mask)))
-    (if (= address masked)
-        address
-      (revert "invalid address"))))
 
 (defun callarg1 () (calldata-load 0x4 ))
 (defun callarg2 () (calldata-load 0x24))
@@ -65,35 +91,36 @@
 
 (case (>> (calldata-load 0) 0xe0)
   ;; IERC20
-  ((selector "mint()")
-   (mint))
-  
   ((selector "totalSupply()")
    (return (totalSupply)))
   
   ((selector "balanceOf(address)")
-   (return (balanceOf (assert-address (callarg1)))))
+   (return (balanceOf (callarg1))))
 
   ((selector "transfer(address,uint256)")
-   (transfer (assert-address (callarg1))
+   (transfer (callarg1)
              (callarg2)))
 
   ((selector "allowance(address,address)")
-   (return (allowance (assert-address (callarg1))
-                      (assert-address (callarg2)))))
+   (return (allowance (callarg1)
+                      (callarg2))))
 
   ((selector "approve(address,uint256)")
-   (approve (assert-address (callarg1))
+   (approve (callarg1)
             (callarg2)))
 
   ((selector "transferFrom(address,address,uint256)")
-   (transferFrom (assert-address (callarg1))
-                 (assert-address (callarg2))
+   (transferFrom (callarg1)
+                 (callarg2)
                  (callarg3)))
 
   ;; IERC20Metadata
   ((selector "name()")     (return "Emacs Lisp Token")) ; TODO
   ((selector "symbol()")   (return "ELT")) ; TODO
   ((selector "decimals()") (return 18))
+
+  ;; Extra
+  ((selector "mint()")
+   (mint))
 
   (otherwise (revert "unrecognized function")))

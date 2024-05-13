@@ -21,6 +21,9 @@ func handleMacroFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	case "let":
 		fnLet(v, s, esp, call)
 		return true
+	case "switchfn":
+		fnSwitchfn(v, s, esp, call)
+		return true
 	case "unless":
 		fnUnless(v, s, esp, call)
 		return true
@@ -161,6 +164,30 @@ func fnLet(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	progn.AddChild(apply)
 
 	progn.Accept(v, s, esp)
+}
+
+// fnSwitchfn converts
+//
+// (switchfn ("totalSupply()" totalSupply)
+//           ("balanceOf(address)" balanceOf)
+//           ("transfer(address,uint256)" transfer)
+//           ("transferFrom("address,address,uint256)" transferFrom))
+//
+// to
+//
+// (case (>> (calldata-load 0) 0xe0)
+//       ((selector "totalSupply()")                         (return totalSupply))
+//       ((selector "balanceOf(address)")                    (return (balanceOf    (calldata-load 0x4))))
+//       ((selector "transfer(address,uint256)")             (return (transfer     (calldata-load 0x4)
+//                                                                                 (calldata-load 0x24))))
+//       ((selector "transferFrom(address,address,uint256)") (return (transferFrom (calldata-load 0x4)
+//                                                                                 (calldata-load 0x24)
+//                                                                                 (calldata-load 0x44)))))
+func fnSwitchfn(v *BytecodeVisitor, s *Scope, esp int, call Node) {
+	// if () -> 0 args
+	// if (x) -> 1 args 0x4
+	// if (x,y) -> 2 args 0x4 0x24
+	// if (x,y,z) -> 3 args 0x4 0x24 0x44
 }
 
 func fnUnless(v *BytecodeVisitor, s *Scope, esp int, call Node) {

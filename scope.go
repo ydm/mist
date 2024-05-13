@@ -174,5 +174,8 @@ func (s *Scope) SetStackVariable(identifier string, variable StackVariable) {
 }
 
 func (s *Scope) SetStorageVariable(name string, position int32) {
+	if position < 0 {
+		panic("TODO")
+	}
 	s.StorageVariables[name] = position
 }
