@@ -51,9 +51,9 @@ func VisitSequence(v Visitor, s *Scope, esp int, nodes []Node, dir int) int {
 
 const (
 	NodeList   = iota // 0
-	NodeSymbol        // 1
-	NodeNumber        // 2
-	NodeString        // 3
+	NodeNumber        // 1
+	NodeString        // 2
+	NodeSymbol        // 3
 
 	// function, primitive, macro
 )
@@ -113,19 +113,22 @@ func NewNodeList(origin Origin) Node {
 	}
 }
 
+func NewNodeAppl(functionName string, origin Origin) Node {
+	ans := NewNodeList(origin)
+	ans.AddChild(NewNodeSymbol(functionName, origin))
+	return ans
+}
+
 func NewNodeNil(origin Origin) Node {
 	return NewNodeSymbol("nil", origin)
 }
 
 func NewNodeProgn() Node {
-	progn := NewNodeList(NewOriginEmpty())
-	progn.AddChild(NewNodeSymbol("progn", NewOriginEmpty()))
-	return progn
+	return NewNodeAppl("progn", NewOriginEmpty())
 }
 
 func NewNodeQuote(child Node, origin Origin) Node {
-	quote := NewNodeList(origin)
-	quote.AddChild(NewNodeSymbol("quote", origin))
+	quote := NewNodeAppl("quote", origin)
 	quote.AddChild(child)
 	if quote.NumChildren() == 0 {
 		panic("wrong number of arguments for (quote): have 0, want at least 1")
@@ -284,6 +287,8 @@ func (n *Node) String() string {
 		return n.ValueString
 	case NodeNumber:
 		return n.ValueNumber.Dec()
+	case NodeString:
+		return fmt.Sprintf(`"%s"`, n.ValueString)
 	default:
 		panic("TODO")
 	}

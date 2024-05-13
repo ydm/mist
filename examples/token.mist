@@ -30,16 +30,6 @@
 ;; | Public functions |
 ;; +------------------+
 
-(defun mint ()
-  (not-payable)
-  (unless (< _totalSupply (ether "15803")) ; 3dbb
-    (revert "maximum token limit reached"))
-  (setq _totalSupply
-        (puthash _balances
-                 (+ (gethash _balances (caller))
-                    (ether "1"))
-                 (caller))))
-
 (defun totalSupply () _totalSupply)
 
 (defun balanceOf (address)
@@ -66,11 +56,10 @@
   (assert-address from)
   (assert-address to)
 
-  ;; TODO: IMPLEMENT <=
-  (unless (< value (allowance from (caller)))
+  (unless (<= value (allowance from (caller)))
     (revert "not allowed"))
 
-  (unless (< value (balanceOf from))
+  (unless (<= value (balanceOf from))
     (revert "not enough"))
 
   (puthash _balances
@@ -78,49 +67,33 @@
            from)
   (puthash _balances
            (+ (gethash _balances to) value)
-           to)
-  )
+           to))
 
-;; +--------+
-;; | Switch |
-;; +--------+
+(defun name () (revert "Emacs Lisp Token"))
+(defun symbol () (revert "ELT"))
+(defun decimals () 18)
 
-(defun callarg1 () (calldata-load 0x4 ))
-(defun callarg2 () (calldata-load 0x24))
-(defun callarg3 () (calldata-load 0x44))
+(defun mint ()
+  (not-payable)
+  (unless (< _totalSupply (ether "15803")) ; 3dbb
+    (revert "maximum token limit reached"))
+  (setq _totalSupply
+        (puthash _balances
+                 (+ (gethash _balances (caller))
+                    (ether "1"))
+                 (caller))))
 
-(case (>> (calldata-load 0) 0xe0)
-  ;; IERC20
-  ((selector "totalSupply()")
-   (return (totalSupply)))
-  
-  ((selector "balanceOf(address)")
-   (return (balanceOf (callarg1))))
-
-  ((selector "transfer(address,uint256)")
-   (transfer (callarg1)
-             (callarg2)))
-
-  ((selector "allowance(address,address)")
-   (return (allowance (callarg1)
-                      (callarg2))))
-
-  ((selector "approve(address,uint256)")
-   (approve (callarg1)
-            (callarg2)))
-
-  ((selector "transferFrom(address,address,uint256)")
-   (transferFrom (callarg1)
-                 (callarg2)
-                 (callarg3)))
-
-  ;; IERC20Metadata
-  ((selector "name()")     (return "Emacs Lisp Token")) ; TODO
-  ((selector "symbol()")   (return "ELT")) ; TODO
-  ((selector "decimals()") (return 18))
-
-  ;; Extra
-  ((selector "mint()")
-   (mint))
-
-  (otherwise (revert "unrecognized function")))
+(dispatch
+ ;; IERC20
+ ("totalSupply()" totalSupply)
+ ("balanceOf(address)" balanceOf)
+ ("transfer(address,uint256)" transfer)
+ ("allowance(address,address)" allowance)
+ ("approve(address,uint256)" approve)
+ ("transferFrom(address,address,uint256)" transferFrom)
+ ;; IERC20Metadata
+ ("name()" name)
+ ("symbol()" symbol)
+ ("decimals()" decimals)
+ ;; Other
+ ("mint()" mint))

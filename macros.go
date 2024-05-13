@@ -15,14 +15,20 @@ import (
 func handleMacroFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	fn := call.FunctionName()
 	switch fn {
+	case "<=":
+		fnLTE(v, s, esp, call)
+		return true
+	case ">=":
+		fnGTE(v, s, esp, call)
+		return true
 	case "apply":
 		fnApply(v, s, esp, call)
 		return true
+	case "dispatch":
+		fnDispatch(v, s, esp, call)
+		return true
 	case "let":
 		fnLet(v, s, esp, call)
-		return true
-	case "switchfn":
-		fnSwitchfn(v, s, esp, call)
 		return true
 	case "unless":
 		fnUnless(v, s, esp, call)
@@ -33,6 +39,32 @@ func handleMacroFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	default:
 		return false
 	}
+}
+
+// fnLTE translates (<= x y) to (not (> x y))
+func fnLTE(v *BytecodeVisitor, s *Scope, esp int, call Node) {
+	args := assertNargsEq("<=", call, 2)
+
+	inv := NewNodeAppl(">", call.Origin)
+	inv.AddChildren(args)
+
+	not := NewNodeAppl("not", call.Origin)
+	not.AddChild(inv)
+
+	not.Accept(v, s, esp)
+}
+
+// fnGTE translates (>= x y) to (not (< x y))
+func fnGTE(v *BytecodeVisitor, s *Scope, esp int, call Node) {
+	args := assertNargsEq(">=", call, 2)
+
+	inv := NewNodeAppl("<", call.Origin)
+	inv.AddChildren(args)
+
+	not := NewNodeAppl("not", call.Origin)
+	not.AddChild(inv)
+
+	not.Accept(v, s, esp)
 }
 
 // Translate (apply 'fn args) to (fn args...).
@@ -84,17 +116,95 @@ func fnApply(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	ans.Accept(v, s, esp)
 }
 
-// Transforms
+// fnDispatch converts
 //
-// (dispatch ("totalSupply()" 'totalSupply))
+// (dispatch ("totalSupply()" totalSupply)
+//
+//	("balanceOf(address)" balanceOf)
+//	("transfer(address,uint256)" transfer)
+//	("transferFrom("address,address,uint256)" transferFrom))
 //
 // to
 //
 // (case (>> (calldata-load 0) 0xe0)
-//   ((selector "totalSupply()") (totalSupply))
-//   (otherwise (revert "unrecognized function")))
+//
+//	((selector "totalSupply()")                         (return (totalSupply)))
+//	((selector "balanceOf(address)")                    (return (balanceOf    (calldata-load 0x4))))
+//	((selector "transfer(address,uint256)")             (return (transfer     (calldata-load 0x4)
+//	                                                                          (calldata-load 0x24))))
+//	((selector "transferFrom(address,address,uint256)") (return (transferFrom (calldata-load 0x4)
+//	                                                                          (calldata-load 0x24)
+//	                                                                          (calldata-load 0x44))))
+//	(otherwise (revert "unrecognized function")))
 func fnDispatch(v *BytecodeVisitor, s *Scope, esp int, call Node) {
-	// TODO
+	args := assertNargsGte("dispatch", call, 0)
+
+	// Build (>> (calldata-load 0) exe0)
+	load := NewNodeAppl("calldata-load", call.Origin)
+	load.AddChild(NewNodeU64(0, call.Origin))
+	shr := NewNodeAppl(">>", call.Origin)
+	shr.AddChild(load)
+	shr.AddChild(NewNodeU64(0xe0, call.Origin))
+
+	// Build (case).
+	ans := NewNodeAppl("case", call.Origin)
+	ans.AddChild(shr)
+
+	// Add each case.
+	for _, inp := range args {
+		// Make sure each clause is a list of two items.
+		if !inp.IsList() || inp.NumChildren() != 2 {
+			fmt.Printf("[X] inp: %v , %d , %v\n", &inp, inp.NumChildren(), &inp.Children[0])
+			panic("TODO")
+		}
+
+		// Extract signature.
+		signature := inp.Children[0]
+		if !signature.IsString() {
+			panic("TODO")
+		}
+
+		// Create (selector) application.
+		selector := NewNodeAppl("selector", signature.Origin)
+		selector.AddChild(signature)
+
+		// Extract handler.
+		symbol := inp.Children[1]
+		if !symbol.IsSymbol() {
+			panic("TODO")
+		}
+
+		// Create (return (handler args...))
+		handler := NewNodeAppl(symbol.ValueString, symbol.Origin)
+		for i := range NumArguments(signature.ValueString) {
+			offset := uint64(0x04 + 0x20*i)
+			arg := NewNodeAppl("calldata-load", symbol.Origin)
+			arg.AddChild(NewNodeU64(offset, symbol.Origin))
+			handler.AddChild(arg)
+		}
+		returnAppl := NewNodeAppl("return", symbol.Origin)
+		returnAppl.AddChild(handler)
+
+		// Create ((selector signature) (return (handler args...)))
+		clause := NewNodeList(inp.Origin)
+		clause.AddChild(selector)
+		clause.AddChild(returnAppl)
+
+		ans.AddChild(clause)
+	}
+
+	// Add the final `otherwise` clause.
+	revert := NewNodeAppl("revert", call.Origin)
+	revert.AddChild(NewNodeString("unrecognized function", call.Origin))
+
+	otherwise := NewNodeList(call.Origin)
+	otherwise.AddChild(NewNodeSymbol("otherwise", call.Origin))
+	otherwise.AddChild(revert)
+
+	ans.AddChild(otherwise)
+
+	// Finally, visit the translated expression.
+	ans.Accept(v, s, esp)
 }
 
 var _lambdaCounter uint32 = 0 //nolint:gochecknoglobals
@@ -105,7 +215,8 @@ func makeUniqueLambdaName() string {
 
 // Transforms (let varlist body...), where varlist is
 // ((key1 value1)
-//  (key2 value2))
+//
+//	(key2 value2))
 //
 // to
 //
@@ -148,14 +259,12 @@ func fnLet(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 
 	unique := NewNodeSymbol(makeUniqueLambdaName(), NewOriginEmpty())
 
-	defun := NewNodeList(NewOriginEmpty())
-	defun.AddChild(NewNodeSymbol("defun", NewOriginEmpty()))
+	defun := NewNodeAppl("defun", NewOriginEmpty())
 	defun.AddChild(unique)
 	defun.AddChild(keys)
 	defun.AddChildren(args[1:])
 
-	apply := NewNodeList(NewOriginEmpty())
-	apply.AddChild(NewNodeSymbol("apply", NewOriginEmpty()))
+	apply := NewNodeAppl("apply", NewOriginEmpty())
 	apply.AddChild(NewNodeQuote(unique, NewOriginEmpty()))
 	apply.AddChild(NewNodeQuote(values, NewOriginEmpty()))
 
@@ -164,30 +273,6 @@ func fnLet(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	progn.AddChild(apply)
 
 	progn.Accept(v, s, esp)
-}
-
-// fnSwitchfn converts
-//
-// (switchfn ("totalSupply()" totalSupply)
-//           ("balanceOf(address)" balanceOf)
-//           ("transfer(address,uint256)" transfer)
-//           ("transferFrom("address,address,uint256)" transferFrom))
-//
-// to
-//
-// (case (>> (calldata-load 0) 0xe0)
-//       ((selector "totalSupply()")                         (return totalSupply))
-//       ((selector "balanceOf(address)")                    (return (balanceOf    (calldata-load 0x4))))
-//       ((selector "transfer(address,uint256)")             (return (transfer     (calldata-load 0x4)
-//                                                                                 (calldata-load 0x24))))
-//       ((selector "transferFrom(address,address,uint256)") (return (transferFrom (calldata-load 0x4)
-//                                                                                 (calldata-load 0x24)
-//                                                                                 (calldata-load 0x44)))))
-func fnSwitchfn(v *BytecodeVisitor, s *Scope, esp int, call Node) {
-	// if () -> 0 args
-	// if (x) -> 1 args 0x4
-	// if (x,y) -> 2 args 0x4 0x24
-	// if (x,y,z) -> 3 args 0x4 0x24 0x44
 }
 
 func fnUnless(v *BytecodeVisitor, s *Scope, esp int, call Node) {
@@ -208,8 +293,7 @@ func fnUnless(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	// Prepare the `else` branch.
 	noop := NewNodeNil(NewOriginEmpty())
 
-	replacement := NewNodeList(call.Origin)
-	replacement.AddChild(NewNodeSymbol("if", NewOriginEmpty()))
+	replacement := NewNodeAppl("if", call.Origin)
 	replacement.AddChild(cond)
 	replacement.AddChild(noop)
 	replacement.AddChild(then)
@@ -234,8 +318,7 @@ func fnWhen(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	// Prepare the `else` branch.
 	noop := NewNodeNil(NewOriginEmpty())
 
-	replacement := NewNodeList(call.Origin)
-	replacement.AddChild(NewNodeSymbol("if", NewOriginEmpty()))
+	replacement := NewNodeAppl("if", call.Origin)
 	replacement.AddChild(cond)
 	replacement.AddChild(then)
 	replacement.AddChild(noop)

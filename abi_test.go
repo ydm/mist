@@ -7,7 +7,7 @@ import (
 	"github.com/ydm/mist"
 )
 
-func TestAbiEncode(t *testing.T) {
+func TestEncodeWithSignature(t *testing.T) {
 	t.Parallel()
 
 	const want = ("08c379a0" +
@@ -19,5 +19,26 @@ func TestAbiEncode(t *testing.T) {
 
 	if diff := cmp.Diff(have, want); diff != "" {
 		t.Error(diff)
+	}
+}
+
+func TestNumArguments(t *testing.T) {
+	t.Parallel()
+
+	signatures := []string{
+		"totalSupply()",
+		"balanceOf(address)",
+		"transfer(address,uint256)",
+		"allowance(address,address)",
+		"transferFrom(address,address,uint256)",
+	}
+
+	want := []int{0, 1, 2, 2, 3}
+
+	for i := range signatures {
+		have := mist.NumArguments(signatures[i])
+		if have != want[i] {
+			t.Errorf("%s: have %d, want %d", signatures[i], have, want[i])
+		}
 	}
 }

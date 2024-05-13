@@ -23,12 +23,12 @@ func EncodeWithSignature(signature string, args ...any) string {
 	}
 
 	def := fmt.Sprintf(`[{
-        "type": "function",
-        "name": "%s",
-        "inputs": [%s],
-        "outputs": [%s],
-        "stateMutability": "payable"
-    }]`, name, strings.Join(inputs, ","), "")
+		"type": "function",
+		"name": "%s",
+		"inputs": [%s],
+		"outputs": [%s],
+		"stateMutability": "payable"
+	}]`, name, strings.Join(inputs, ","), "")
 
 	encoder, err := abi.JSON(strings.NewReader(def))
 	if err != nil {
@@ -51,4 +51,20 @@ func EncodeWithSignature(signature string, args ...any) string {
 	}
 
 	return ans
+}
+
+func NumArguments(signature string) int {
+	opening := strings.Index(signature, "(")
+	closing := strings.Index(signature, ")")
+
+	args := strings.Split(
+		signature[opening+1:closing],
+		",",
+	)
+
+	if len(args) == 1 && args[0] == "" {
+		return 0
+	}
+
+	return len(args)
 }
