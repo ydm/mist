@@ -1,0 +1,5 @@
+;; -*- mode: emacs-lisp -*-
+
+(let ((x 0x123)
+      (y 0x321))
+  (return (+ x y)))

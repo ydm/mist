@@ -4,8 +4,8 @@
 ;; | Storage |
 ;; +---------+
 
-(defvar _balances (mapping address uint256))
-(defvar _allowances (mapping address (mapping address uint256)))
+(defvar _balances    (mapping address uint256))
+(defvar _allowances  (mapping address (mapping address uint256)))
 (defvar _totalSupply uint256)
 
 ;; +-----------+

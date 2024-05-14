@@ -215,8 +215,7 @@ func makeUniqueLambdaName() string {
 
 // Transforms (let varlist body...), where varlist is
 // ((key1 value1)
-//
-//	(key2 value2))
+//  (key2 value2))
 //
 // to
 //
@@ -235,7 +234,7 @@ func fnLet(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	keys := NewNodeList(NewOriginEmpty())
 	values := NewNodeList(NewOriginEmpty())
 	for i := 0; i < varlist.NumChildren(); i++ {
-		pair := varlist.Children[0]
+		pair := varlist.Children[i]
 		if !pair.IsList() || pair.NumChildren() != 2 {
 			panic("TODO")
 		}
