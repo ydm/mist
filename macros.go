@@ -233,7 +233,7 @@ func fnLet(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 
 	keys := NewNodeList(NewOriginEmpty())
 	values := NewNodeList(NewOriginEmpty())
-	for i := 0; i < varlist.NumChildren(); i++ {
+	for i := range varlist.NumChildren() {
 		pair := varlist.Children[i]
 		if !pair.IsList() || pair.NumChildren() != 2 {
 			panic("TODO")

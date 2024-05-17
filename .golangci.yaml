@@ -2,29 +2,30 @@ linters:
   enable-all: true
   disable:
     - deadcode
-    - scopelint
-    - maligned
-    - interfacer
+    - execinquery
     - exhaustivestruct
-    - nosnakecase
-    - varcheck
-    - structcheck
-    - ifshort
     - golint
-
+    - ifshort
+    - interfacer
+    - maligned
+    - nosnakecase
+    - scopelint
+    - structcheck
+    - varcheck
+    #
     - cyclop
     - depguard                  # TODO
+    - dupword
     - forbidigo
     - funlen
     - gocyclo
-    - godox                     # I'll have as many TODOs as I like.
+    - godox            # thanks, but i'll have as many todos as i like
     - gomnd
+    - ineffassign               # esp gets updated for clarity
     - lll
+    - mnd
     - nlreturn
     - varnamelen
+    - wastedassign              # esp gets updated for clarity
     - whitespace
     - wsl
-    
-issues:
-  exclude-files:
-    - opcodes.go

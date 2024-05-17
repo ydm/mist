@@ -463,7 +463,7 @@ func fnCase(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	// `otherwise`), compare the key and eventually execute the
 	// body.
 	last := len(tail) - 1
-	for i := 0; i < last; i++ {
+	for i := range last {
 		// Starting stack is always [XX].
 
 		clause := tail[i]
@@ -753,8 +753,8 @@ func fnPuthash(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 		esp -= 1              //  --> esp=3
 	}
 
-	v.addOp(vm.SSTORE)	// [VV], s[HH]=VV
-	esp -= 2		//  --> esp=1
+	v.addOp(vm.SSTORE) // [VV], s[HH]=VV
+	esp -= 2           //  --> esp=1
 }
 
 func fnReturn(v *BytecodeVisitor, s *Scope, esp int, call Node) {
@@ -789,13 +789,13 @@ func fnRevert(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 		esp += 0                     //
 
 		// Push and store selector.
-		v.addOp(vm.PUSH32)                 //
-		v.addCode(padRight32(encoded[:8])) // [ER FM]
-		esp += 1                           //
-		v.addOp(vm.DUP2)                   // [FM ER FM]
-		esp += 1                           //
-		v.addOp(vm.MSTORE)                 // [FM], m[FM]=[ER]
-		esp -= 2                           //
+		v.addOp(vm.PUSH32)                //
+		v.addHex(padRight32(encoded[:8])) // [ER FM]
+		esp += 1                          //
+		v.addOp(vm.DUP2)                  // [FM ER FM]
+		esp += 1                          //
+		v.addOp(vm.MSTORE)                // [FM], m[FM]=[ER]
+		esp -= 2                          //
 
 		// Push and store each word of 32 bytes (== 64 hex chars).
 		n := uint64(len(encoded))
@@ -803,7 +803,7 @@ func fnRevert(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 			word := encoded[i : i+64]
 
 			v.addOp(vm.PUSH32) //
-			v.addCode(word)    // [WO FM]
+			v.addHex(word)     // [WO FM]
 			esp += 1           //
 			v.addOp(vm.DUP2)   // [FM WO FM]
 			esp += 1           //
@@ -848,7 +848,7 @@ func fnSelector(v *BytecodeVisitor, _ *Scope, _ int, call Node) {
 	h := Keccak256Hash([]byte(args[0].ValueString))
 
 	v.addOp(vm.PUSH4)
-	v.addCode(fmt.Sprintf("%02x%02x%02x%02x", h[0], h[1], h[2], h[3]))
+	v.addHex(fmt.Sprintf("%02x%02x%02x%02x", h[0], h[1], h[2], h[3]))
 }
 
 func fnSetq(v *BytecodeVisitor, s *Scope, esp int, call Node) {

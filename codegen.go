@@ -159,15 +159,15 @@ func NewBytecodeVisitor(init bool) *BytecodeVisitor {
 	return v
 }
 
-// +---------+
-// | Add fns |
-// +---------+
+// +---------------+
+// | Add functions |
+// +---------------+
 
 func (v *BytecodeVisitor) addSegment(s segment) {
 	v.segments = append(v.segments, s)
 }
 
-func (v *BytecodeVisitor) addCode(code string) {
+func (v *BytecodeVisitor) addHex(code string) {
 	v.addSegment(newSegmentData(code))
 }
 
@@ -188,17 +188,16 @@ func (v *BytecodeVisitor) addU256(x *uint256.Int) {
 	}
 
 	code := fmt.Sprintf("%s%s", padding, hex[2:])
-	v.addCode(code)
+	v.addHex(code)
 }
 
-//nolint:unused
 func (v *BytecodeVisitor) addU64(x uint64) {
 	v.addU256(uint256.NewInt(x))
 }
 
-// +----------+
-// | Push fns |
-// +----------+
+// +----------------+
+// | Push functions |
+// +----------------+
 
 func (v *BytecodeVisitor) pushU256(x *uint256.Int) {
 	hex := x.Hex()
@@ -216,6 +215,11 @@ func (v *BytecodeVisitor) pushU256(x *uint256.Int) {
 func (v *BytecodeVisitor) pushU64(x uint64) {
 	v.pushU256(uint256.NewInt(x))
 }
+
+// +-----------------+
+// | Visit functions |
+// +-----------------+
+
 
 func (v *BytecodeVisitor) VisitNil() {
 	v.pushU64(0)
@@ -243,7 +247,7 @@ func (v *BytecodeVisitor) VisitString(n Node) {
 
 	op := vm.OpCode(byte(vm.PUSH0) + byte(length))
 	v.addOp(op)
-	v.addCode(encoded)
+	v.addHex(encoded)
 }
 
 func (v *BytecodeVisitor) VisitSymbol(s *Scope, esp int, symbol Node) {
@@ -300,6 +304,10 @@ func (v *BytecodeVisitor) VisitFunction(s *Scope, esp int, call Node) {
 
 	panic(fmt.Sprintf("%v: void function: %s", call.Origin, call.FunctionName()))
 }
+
+// +-------------------+
+// | Segment functions |
+// +-------------------+
 
 func (v *BytecodeVisitor) getPosition(id int32) int {
 	pos := 0

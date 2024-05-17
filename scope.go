@@ -13,7 +13,9 @@ type LispFunction struct {
 	Body   Node
 }
 
-func NewLispFunction(n Node) (empty LispFunction, _ error) {
+func NewLispFunction(n Node) (LispFunction, error) {
+	var empty LispFunction
+
 	// [0] defun
 	// [1] name
 	// [2] args

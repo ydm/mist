@@ -3,7 +3,6 @@ package mist_test
 import (
 	"testing"
 
-	"github.com/holiman/uint256"
 	"github.com/ydm/mist"
 )
 
@@ -12,7 +11,7 @@ func expectToken(
 	tok mist.Token,
 	tokType int,
 	tokValueString string,
-	tokValueNumber uint64,
+	// tokValueNumber uint64,
 ) {
 	t.Helper()
 
@@ -24,9 +23,9 @@ func expectToken(
 		t.Errorf("have %s, want %s", tok.ValueString, tokValueString)
 	}
 
-	if tok.Type == mist.TokenNumber && !uint256.NewInt(tokValueNumber).Eq(tok.ValueNumber) {
-		t.Errorf("have %v, want %v", tok.ValueNumber, tokValueNumber)
-	}
+	// if tok.Type == mist.TokenNumber && !uint256.NewInt(tokValueNumber).Eq(tok.ValueNumber) {
+	// 	t.Errorf("have %v, want %v", tok.ValueNumber, tokValueNumber)
+	// }
 }
 
 func TestScan(t *testing.T) {
@@ -37,10 +36,10 @@ func TestScan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expectToken(t, tokens.Next(), mist.TokenLeftParen, "", 0)
-	expectToken(t, tokens.Next(), mist.TokenSymbol, "selector", 0)
-	expectToken(t, tokens.Next(), mist.TokenString, "pause", 0)
-	expectToken(t, tokens.Next(), mist.TokenRightParen, "", 0)
+	expectToken(t, tokens.Next(), mist.TokenLeftParen, "")
+	expectToken(t, tokens.Next(), mist.TokenSymbol, "selector")
+	expectToken(t, tokens.Next(), mist.TokenString, "pause")
+	expectToken(t, tokens.Next(), mist.TokenRightParen, "")
 	for tokens.HasNext() {
 		t.Fail()
 	}
@@ -50,10 +49,10 @@ func TestScan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expectToken(t, tokens.Next(), mist.TokenLeftParen, "", 0)
-	expectToken(t, tokens.Next(), mist.TokenSymbol, "selector", 0)
-	expectToken(t, tokens.Next(), mist.TokenString, "pause()", 0)
-	expectToken(t, tokens.Next(), mist.TokenRightParen, "", 0)
+	expectToken(t, tokens.Next(), mist.TokenLeftParen, "")
+	expectToken(t, tokens.Next(), mist.TokenSymbol, "selector")
+	expectToken(t, tokens.Next(), mist.TokenString, "pause()")
+	expectToken(t, tokens.Next(), mist.TokenRightParen, "")
 	for tokens.HasNext() {
 		t.Fail()
 	}
@@ -63,10 +62,10 @@ func TestScan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expectToken(t, tokens.Next(), mist.TokenLeftParen, "", 0)
-	expectToken(t, tokens.Next(), mist.TokenSymbol, "selector", 0)
-	expectToken(t, tokens.Next(), mist.TokenString, "pause();", 0)
-	expectToken(t, tokens.Next(), mist.TokenRightParen, "", 0)
+	expectToken(t, tokens.Next(), mist.TokenLeftParen, "")
+	expectToken(t, tokens.Next(), mist.TokenSymbol, "selector")
+	expectToken(t, tokens.Next(), mist.TokenString, "pause();")
+	expectToken(t, tokens.Next(), mist.TokenRightParen, "")
 	for tokens.HasNext() {
 		t.Fail()
 	}
@@ -76,10 +75,10 @@ func TestScan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expectToken(t, tokens.Next(), mist.TokenLeftParen, "", 0)
-	expectToken(t, tokens.Next(), mist.TokenSymbol, "selector", 0)
-	expectToken(t, tokens.Next(), mist.TokenString, "", 0)
-	expectToken(t, tokens.Next(), mist.TokenRightParen, "", 0)
+	expectToken(t, tokens.Next(), mist.TokenLeftParen, "")
+	expectToken(t, tokens.Next(), mist.TokenSymbol, "selector")
+	expectToken(t, tokens.Next(), mist.TokenString, "")
+	expectToken(t, tokens.Next(), mist.TokenRightParen, "")
 	for tokens.HasNext() {
 		t.Fail()
 	}

@@ -10,7 +10,7 @@ import (
 
 type KeccakState interface {
 	hash.Hash
-	Read([]byte) (int, error)
+	Read(p []byte) (int, error)
 }
 
 const (
@@ -20,11 +20,17 @@ const (
 
 type Hash [HashLength]byte
 
-func Keccak256Hash(data ...[]byte) (h Hash) {
-	d := sha3.NewLegacyKeccak256().(KeccakState)
+func Keccak256Hash(data ...[]byte) Hash {
+	d, ok := sha3.NewLegacyKeccak256().(KeccakState)
+	if !ok {
+		panic("TODO")
+	}
+
 	for _, b := range data {
 		d.Write(b)
 	}
+
+	var h Hash
 	d.Read(h[:])
 	return h
 }
