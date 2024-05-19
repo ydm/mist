@@ -3,7 +3,9 @@
 (defconst ~something~ 0x10)
 
 (defun fn ()
-  (defconst ~something~ 0x20)
-  ~something~)
+  (let ((~something~ 0x20))
+    ~something~))
 
 (return (fn))
+
+;; expect 0x20

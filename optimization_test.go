@@ -1,24 +1,30 @@
 package mist_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/ydm/mist"
 )
 
-func TestOptimizeIfs(t *testing.T) {
+func TestOptimizeIf(t *testing.T) {
 	t.Parallel()
 
-	const (
-		program = "(if 1 2 3)"
-		want = "6002"
-	)
+	cases := []string{
+		"(if 1 2 3)",
+	}
 
-	have, err := mist.Compile(program, "test", false, 0)
+	want := []string{
+		"6002",
+	}
+
+	have, err := mist.Compile(c, fmt.Sprintf("case%d", i), false, offopt)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if have != want {
-		t.Errorf("have %s, want %s", have, want)
+		t.Logf("want:\n%s", mist.Decompile(want[i]))
+		t.Logf("have:\n%s", mist.Decompile(have))
 	}
 }

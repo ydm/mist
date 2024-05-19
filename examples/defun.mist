@@ -1,7 +1,0 @@
-;; (defun f (x) (+ x 1))
-
-(defun f (x) (+ x x))
-
-(defun g (x) (+ x x))
-
-(f 10)

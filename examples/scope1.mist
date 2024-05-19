@@ -5,3 +5,5 @@
 (defun fn () ~global~)
 
 (return (fn))
+
+;; expect 0x10

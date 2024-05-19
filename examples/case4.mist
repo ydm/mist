@@ -1,4 +1,6 @@
 ;; -*- mode: emacs-lisp -*-
 
-; default clause, returns 0x20
+; default clause
 (return (case 0x1234 (1 0x10) (otherwise 0x20)))
+
+;; expect 0x20

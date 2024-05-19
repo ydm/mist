@@ -1,8 +1,11 @@
 ;; -*- mode: emacs-lisp -*-
 
-; third clause, returns 0x30
+; third clause
 (return (case 0x1234
           (0x1230 0x10)
           (0x1232 0x20)
           (0x1234 0x30)
           (otherwise 0x40)))
+
+;; expect 0x30
+

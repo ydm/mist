@@ -1,0 +1,12 @@
+;; -*- mode: emacs-lisp -*-
+
+;; (progn) doesn't provide a dedicated scope.
+
+(defun f () 0x10)
+(progn (defun f () 0x20))
+(progn (defun f () 0x30))
+(progn (defun f () 0x40))
+
+(return (f))
+
+;; expect 0x40

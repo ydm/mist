@@ -1,3 +1,6 @@
 ;; -*- mode: emacs-lisp -*-
 
-(return (case 0x1234))                  ; no clauses, returns 0
+;; no clauses
+(return (case 0x1234))
+
+;; expect 0

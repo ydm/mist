@@ -4,12 +4,20 @@ package mist
 // | AST optimizations |
 // +-------------------+
 
-// Flags that turn off optimizations.
+// Flags to turn off optimizations.
 const (
+	OFFOPT_ARITHMETIC = 1 << iota
 	OFFOPT_IF = 1 << iota
-	OFFOPT_KUR = 1 << iota
 )
 
+// TODO: If an arithmetic expression is made up of constants, replace
+// it with the result instead.
+func optimizeArithmetic(node Node) Node {
+	return node
+}
+
+// If the condition of an (if) expression is constant, replace the
+// whole (if) expression with the corresponding branch.
 func optimizeIf(node Node) Node {
 	if node.Type != NodeList || node.NumChildren() < 1 {
 		return node
@@ -33,14 +41,15 @@ func optimizeIf(node Node) Node {
 	return node
 }
 
-func OptimizeAST(node Node, offopt uint32) Node {
+func OptimizeAST(node Node, offs uint32) Node {
 	type t func(node Node) Node
 	fns := []t{
+		optimizeArithmetic,
 		optimizeIf,
 	}
-	for bit, fn := range fns {
-		mask := uint32(1) << bit
-		if mask&offopt == 0 {
+	for i, fn := range fns {
+		bit := uint32(1) << i
+		if offs&bit == 0 {
 			node = fn(node)
 		}
 	}

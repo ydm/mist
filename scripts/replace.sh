@@ -1,9 +1,12 @@
 #!/bin/bash
 
-FILENAME=token.mist
-SCRIPT=deploy.ts
+TARGET=${TARGET:-token.mist}
+SCRIPT=${SCRIPT:-deploy.ts}
 
-BYTECODE=$(go run cmd/mist.go <examples/${FILENAME})
+echo "target: ${TARGET}"
+echo "script: ${SCRIPT}"
+
+BYTECODE=$(go run cmd/mist.go < "examples/${TARGET}")
 
 echo "bytecode: ${BYTECODE}"
 

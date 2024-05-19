@@ -1,0 +1,7 @@
+;; -*- mode: emacs-lisp -*-
+
+;; (progn (return 0x80))
+
+(return (if t 2 3))
+
+;; expect 0x80
