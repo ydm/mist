@@ -178,8 +178,8 @@ func Scan(code string, filename string) (TokenIterator, error) {
 			})
 		}
 
-		// If there are characters already collected, we might be able to
-		// build a token.
+		// If there are characters already collected, we might
+		// be able to build a token out of them.
 		maybeBuild = func() error {
 			if builder.Len() <= 0 {
 				return nil
@@ -274,60 +274,6 @@ func Scan(code string, filename string) (TokenIterator, error) {
 		} else {
 			panic("broken invariant")
 		}
-
-		// if r == '"' && state.inString() {
-
-		// 	continue
-		// } else if r == '\n' {
-		// 	// We doesn't support multi-line comments or strings, so
-		// 	// get back to code.
-		// 	state.transitionTo(lexerStateCode)
-		// 	state.newLine(i)
-		// 	continue
-		// }
-
-		// if true {
-		// 	continue
-		// }
-
-		// // If inside a comment, skip this character.
-		// if state.inComment() {
-		// 	continue
-		// } else if state.inString() {
-		// 	pushRune(i, r)
-		// }
-
-		// // Character is part of the programming code.
-		// fmt.Printf("before switch, %c\n", r)
-		// switch r {
-		// case '(':
-		// 	if err := maybeBuild(); err != nil {
-		// 		return tokens, err
-		// 	}
-		// 	pushToken(TokenLeftParen, "", nil, state.getLine(), state.getColumn(i))
-		// case ')':
-		// 	if err := maybeBuild(); err != nil {
-		// 		return tokens, err
-		// 	}
-		// 	pushToken(TokenRightParen, "", nil, state.getLine(), state.getColumn(i))
-		// case '\'':
-		// 	if err := maybeBuild(); err != nil {
-		// 		return tokens, err
-		// 	}
-		// 	pushToken(TokenQuote, "", nil, state.getLine(), state.getColumn(i))
-		// default:
-		// 	if unicode.IsSpace(r) {
-		// 		if err := maybeBuild(); err != nil {
-		// 			return tokens, err
-		// 		}
-		// 	} else {
-		// 		pushRune(i, r)
-		// 		fmt.Printf("[Y 3] %v >%s<\n", tokens.tokens, builder.String())
-		// 	}
-		// }
-		// fmt.Printf("after switch, %c\n", r)
-
-		// prev = r
 	}
 
 	err := maybeBuild()

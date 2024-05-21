@@ -42,6 +42,8 @@ func (s segment) String() string {
 		fmt.Fprintf(&b, "op %v", vm.OpCode(s.opcode))
 	} else if s.isPointer() {
 		fmt.Fprintf(&b, "ptr to %d", s.pointer)
+	} else {
+		panic("broken invariant")
 	}
 
 	fmt.Fprintf(&b, "]")
@@ -113,8 +115,12 @@ func (s *segment) getCode() string {
 		panic("pointer not initialized")
 	}
 
-	if s.opcode >= 0 {
+	if s.isOpcode() {
 		return fmt.Sprintf("%02x", byte(s.opcode))
+	}
+
+	if s.data == "" {
+		panic("empty data segment")
 	}
 
 	return s.data
@@ -126,12 +132,15 @@ func (s *segment) len() int {
 		return 3
 	}
 
-	if s.opcode >= 0 {
+	if s.isOpcode() {
 		// Each opcode is exactly 1 byte.
 		return 1
 	}
 
 	// Each byte needs 2 hexadecimal characters.
+	if len(s.data)%2 != 0 {
+		panic("broken invariant")
+	}
 	return len(s.data) / 2
 }
 
@@ -219,7 +228,6 @@ func (v *BytecodeVisitor) pushU64(x uint64) {
 // +-----------------+
 // | Visit functions |
 // +-----------------+
-
 
 func (v *BytecodeVisitor) VisitNil() {
 	v.pushU64(0)

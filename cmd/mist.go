@@ -30,7 +30,7 @@ func main() {
 
 	const (
 		// TODO: Turn into cli args.
-		init = true
+		init    = true
 		verbose = false
 	)
 

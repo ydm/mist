@@ -29,3 +29,5 @@ linters:
     - wastedassign              # esp gets updated for clarity
     - whitespace
     - wsl
+    - revive                    # esp gets updated for clarity
+    - godot                     # absurd

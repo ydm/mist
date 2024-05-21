@@ -54,8 +54,7 @@ const (
 	NodeNumber        // 1
 	NodeString        // 2
 	NodeSymbol        // 3
-
-	// function, primitive, macro
+	// TODO: function, primitive, macro
 )
 
 type Node struct {
@@ -113,7 +112,7 @@ func NewNodeList(origin Origin) Node {
 	}
 }
 
-func NewNodeAppl(functionName string, origin Origin) Node {
+func NewNodeApplication(functionName string, origin Origin) Node {
 	ans := NewNodeList(origin)
 	ans.AddChild(NewNodeSymbol(functionName, origin))
 	return ans
@@ -124,11 +123,11 @@ func NewNodeNil(origin Origin) Node {
 }
 
 func NewNodeProgn() Node {
-	return NewNodeAppl("progn", NewOriginEmpty())
+	return NewNodeApplication("progn", NewOriginEmpty())
 }
 
 func NewNodeQuote(child Node, origin Origin) Node {
-	quote := NewNodeAppl("quote", origin)
+	quote := NewNodeApplication("quote", origin)
 	quote.AddChild(child)
 	if quote.NumChildren() == 0 {
 		panic("wrong number of arguments for (quote): have 0, want at least 1")
@@ -138,7 +137,7 @@ func NewNodeQuote(child Node, origin Origin) Node {
 
 // TODO: Maybe accepting (Node) is better?  And then:
 //
-// parent = parent.AddChil(child)
+// parent = parent.AddChild(child)
 func (n *Node) AddChild(child Node) {
 	if n.IsAtom() {
 		panic(fmt.Sprintf("%v: atom %s cannot have children", n.Origin, n.String()))

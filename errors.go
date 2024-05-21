@@ -34,7 +34,7 @@ func (e LexicalError) Error() string {
 // +-------------+
 
 type CompilationError struct {
-	Origin Origin
+	Origin  Origin
 	Message string
 }
 

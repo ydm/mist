@@ -8,14 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 )
 
-func nargs(op vm.OpCode) int {
-	if op.IsPush() {
-		return int(op - vm.PUSH0)
-	}
-
-	return 0
-}
-
 func Decompile(program string) string {
 	var (
 		out  strings.Builder

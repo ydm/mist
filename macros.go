@@ -45,10 +45,10 @@ func handleMacroFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 func fnLTE(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	args := assertNargsEq("<=", call, 2)
 
-	inv := NewNodeAppl(">", call.Origin)
+	inv := NewNodeApplication(">", call.Origin)
 	inv.AddChildren(args)
 
-	not := NewNodeAppl("not", call.Origin)
+	not := NewNodeApplication("not", call.Origin)
 	not.AddChild(inv)
 
 	not.Accept(v, s, esp)
@@ -58,10 +58,10 @@ func fnLTE(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 func fnGTE(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	args := assertNargsEq(">=", call, 2)
 
-	inv := NewNodeAppl("<", call.Origin)
+	inv := NewNodeApplication("<", call.Origin)
 	inv.AddChildren(args)
 
-	not := NewNodeAppl("not", call.Origin)
+	not := NewNodeApplication("not", call.Origin)
 	not.AddChild(inv)
 
 	not.Accept(v, s, esp)
@@ -140,14 +140,14 @@ func fnDispatch(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	args := assertNargsGte("dispatch", call, 0)
 
 	// Build (>> (calldata-load 0) exe0)
-	load := NewNodeAppl("calldata-load", call.Origin)
+	load := NewNodeApplication("calldata-load", call.Origin)
 	load.AddChild(NewNodeU64(0, call.Origin))
-	shr := NewNodeAppl(">>", call.Origin)
+	shr := NewNodeApplication(">>", call.Origin)
 	shr.AddChild(load)
 	shr.AddChild(NewNodeU64(0xe0, call.Origin))
 
 	// Build (case).
-	ans := NewNodeAppl("case", call.Origin)
+	ans := NewNodeApplication("case", call.Origin)
 	ans.AddChild(shr)
 
 	// Add each case.
@@ -165,7 +165,7 @@ func fnDispatch(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 		}
 
 		// Create (selector) application.
-		selector := NewNodeAppl("selector", signature.Origin)
+		selector := NewNodeApplication("selector", signature.Origin)
 		selector.AddChild(signature)
 
 		// Extract handler.
@@ -175,14 +175,14 @@ func fnDispatch(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 		}
 
 		// Create (return (handler args...))
-		handler := NewNodeAppl(symbol.ValueString, symbol.Origin)
+		handler := NewNodeApplication(symbol.ValueString, symbol.Origin)
 		for i := range NumArguments(signature.ValueString) {
 			offset := uint64(0x04 + 0x20*i)
-			arg := NewNodeAppl("calldata-load", symbol.Origin)
+			arg := NewNodeApplication("calldata-load", symbol.Origin)
 			arg.AddChild(NewNodeU64(offset, symbol.Origin))
 			handler.AddChild(arg)
 		}
-		returnAppl := NewNodeAppl("return", symbol.Origin)
+		returnAppl := NewNodeApplication("return", symbol.Origin)
 		returnAppl.AddChild(handler)
 
 		// Create ((selector signature) (return (handler args...)))
@@ -194,7 +194,7 @@ func fnDispatch(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	}
 
 	// Add the final `otherwise` clause.
-	revert := NewNodeAppl("revert", call.Origin)
+	revert := NewNodeApplication("revert", call.Origin)
 	revert.AddChild(NewNodeString("unrecognized function", call.Origin))
 
 	otherwise := NewNodeList(call.Origin)
@@ -215,7 +215,8 @@ func makeUniqueLambdaName() string {
 
 // Transforms (let varlist body...), where varlist is
 // ((key1 value1)
-//  (key2 value2))
+//
+//	(key2 value2))
 //
 // to
 //
@@ -258,12 +259,12 @@ func fnLet(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 
 	unique := NewNodeSymbol(makeUniqueLambdaName(), NewOriginEmpty())
 
-	defun := NewNodeAppl("defun", NewOriginEmpty())
+	defun := NewNodeApplication("defun", NewOriginEmpty())
 	defun.AddChild(unique)
 	defun.AddChild(keys)
 	defun.AddChildren(args[1:])
 
-	apply := NewNodeAppl("apply", NewOriginEmpty())
+	apply := NewNodeApplication("apply", NewOriginEmpty())
 	apply.AddChild(NewNodeQuote(unique, NewOriginEmpty()))
 	apply.AddChild(NewNodeQuote(values, NewOriginEmpty()))
 
@@ -292,7 +293,7 @@ func fnUnless(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	// Prepare the `else` branch.
 	noop := NewNodeNil(NewOriginEmpty())
 
-	replacement := NewNodeAppl("if", call.Origin)
+	replacement := NewNodeApplication("if", call.Origin)
 	replacement.AddChild(cond)
 	replacement.AddChild(noop)
 	replacement.AddChild(then)
@@ -317,7 +318,7 @@ func fnWhen(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	// Prepare the `else` branch.
 	noop := NewNodeNil(NewOriginEmpty())
 
-	replacement := NewNodeAppl("if", call.Origin)
+	replacement := NewNodeApplication("if", call.Origin)
 	replacement.AddChild(cond)
 	replacement.AddChild(then)
 	replacement.AddChild(noop)

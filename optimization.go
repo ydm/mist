@@ -6,8 +6,8 @@ package mist
 
 // Flags to turn off optimizations.
 const (
-	OFFOPT_ARITHMETIC = 1 << iota
-	OFFOPT_IF = 1 << iota
+	OffoptArithmetic = 1 << iota
+	OffoptIf         = 1 << iota
 )
 
 // TODO: If an arithmetic expression is made up of constants, replace

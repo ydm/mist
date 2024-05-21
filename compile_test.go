@@ -12,7 +12,7 @@ import (
 func compileAndCompare(t *testing.T, cases, want []string) {
 	t.Helper()
 
-	const offopt = mist.OFFOPT_IF
+	const offopt = mist.OffoptIf
 
 	for i, c := range cases {
 		have, err := mist.Compile(c, fmt.Sprintf("case%d", i), false, offopt)
