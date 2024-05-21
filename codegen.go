@@ -18,7 +18,7 @@ const (
 // | segment |
 // +---------+
 
-var _segmentID int32 = 0 //nolint:gochecknoglobals
+var _segmentID int32 = 0
 
 func makeSegmentID() int32 {
 	return atomic.AddInt32(&_segmentID, 1)
@@ -150,6 +150,7 @@ func (s *segment) len() int {
 
 type BytecodeVisitor struct {
 	segments []segment
+	functions map[string]string
 }
 
 func NewBytecodeVisitor(init bool) *BytecodeVisitor {
@@ -335,6 +336,10 @@ func (v *BytecodeVisitor) populatePointers() {
 			v.segments[i].pointTo(pos)
 		}
 	}
+}
+
+func (v *BytecodeVisitor) StoreFunction(name, code string) {
+	v.functions[name] = code
 }
 
 func (v *BytecodeVisitor) OptimizeBytecode() {

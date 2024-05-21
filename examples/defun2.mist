@@ -2,6 +2,8 @@
 
 (defun f (x) (+ x x))
 
-(return (f 0x10))
+(defun g (x) (* x x))
+
+(return (g (f 0x10)))
 
 ;; expect 0x400

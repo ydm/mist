@@ -207,21 +207,20 @@ func fnDispatch(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	ans.Accept(v, s, esp)
 }
 
-var _lambdaCounter uint32 = 0 //nolint:gochecknoglobals
+var _lambdaCounter uint32 = 0
 
 func makeUniqueLambdaName() string {
 	return fmt.Sprintf("lambda%d", atomic.AddUint32(&_lambdaCounter, 1))
 }
 
-// Transforms (let varlist body...), where varlist is
-// ((key1 value1)
+// Transforms (let varlist body...), where varlist has the form
 //
-//	(key2 value2))
+// ((key1 value1)
+//  (key2 value2))
 //
 // to
 //
 // (progn (defun unique (keys...) body...)
-//
 //	(apply 'unique values))
 func fnLet(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	args := assertNargsGte("let", call, 0)

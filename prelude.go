@@ -332,10 +332,11 @@ func handleDefinedFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 		))
 	}
 
-	// Create a child scope and evaluate all arguments.
-	childScope := s.NewChildScope()
+	// Evaluate all arguments.
 	esp += VisitSequence(v, s, esp, args, -1)
 
+	// Create a child scope and store evaluated variables.
+	childScope := s.NewChildScope()
 	for i := range fn.Args {
 		identifier := fn.Args[i].ValueString
 		position := ebp + len(fn.Args) - 1 - i
@@ -345,6 +346,12 @@ func handleDefinedFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 			Position:   position,
 		})
 	}
+
+	// inner := NewBytecodeVisitor(false)
+	// fn.Body.Accept(inner, childScope, esp)
+	// inner.OptimizeBytecode()
+	// code := inner.String()
+	// fmt.Println(name, code)
 
 	fn.Body.Accept(v, childScope, esp)
 	esp += 1
