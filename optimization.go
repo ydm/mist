@@ -65,7 +65,7 @@ func OptimizeAST(node Node, offs uint32) Node {
 // PUSH[1-16]
 // DATA
 // POP
-func optimizePushPop(segments []segment) []segment {
+func optimizePushPop(segments []Segment) []Segment {
 	marked := make([]int, 0, 16)
 	n := len(segments) - 2
 	for i := 0; i < n; i++ {
@@ -78,7 +78,7 @@ func optimizePushPop(segments []segment) []segment {
 		}
 	}
 
-	optimized := make([]segment, len(segments))
+	optimized := make([]Segment, len(segments))
 	copy(optimized, segments)
 
 	for i := len(marked) - 1; i >= 0; i-- {
@@ -90,8 +90,8 @@ func optimizePushPop(segments []segment) []segment {
 	return optimized
 }
 
-func OptimizeBytecode(segments []segment) []segment {
-	type t func(segments []segment) []segment
+func OptimizeBytecode(segments []Segment) []Segment {
+	type t func(segments []Segment) []Segment
 	fns := []t{
 		optimizePushPop,
 	}

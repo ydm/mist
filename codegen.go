@@ -2,6 +2,7 @@ package mist
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"sync/atomic"
 
@@ -24,7 +25,7 @@ func makeSegmentID() int32 {
 	return atomic.AddInt32(&_segmentID, 1)
 }
 
-type segment struct {
+type Segment struct {
 	id int32
 
 	opcode  int    // valid if >=0
@@ -32,16 +33,51 @@ type segment struct {
 	pointer int32  // valid if >0
 }
 
-func (s segment) String() string {
+func SegmentsGetPosition(xs []Segment, id int32) int {
+	pos := 0
+	for i := range xs {
+		if xs[i].id == id {
+			return pos
+		}
+		pos += xs[i].len()
+	}
+	panic(fmt.Sprintf("broken invariant: id=%d", id))
+}
+
+func SegmentsPopulatePointers(xs []Segment) []Segment {
+	ys := make([]Segment, len(xs))
+	copy(ys, xs)
+
+	for i := range ys {
+		if ys[i].isPointer() {
+			pos := SegmentsGetPosition(ys, ys[i].pointer)
+			ys[i].pointTo(pos)
+		}
+	}
+
+	return ys
+}
+
+func SegmentsToString(xs []Segment) string {
+	var b strings.Builder
+
+	for i := range xs {
+		b.WriteString(xs[i].getCode())
+	}
+
+	return b.String()
+}
+
+func (s Segment) String() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "[")
 
 	if s.isData() {
-		fmt.Fprintf(&b, "data %s", s.data)
+		fmt.Fprintf(&b, "(%d) data %s", s.id, s.data)
 	} else if s.isOpcode() {
-		fmt.Fprintf(&b, "op %v", vm.OpCode(s.opcode))
+		fmt.Fprintf(&b, "(%d) op %v", s.id, vm.OpCode(s.opcode))
 	} else if s.isPointer() {
-		fmt.Fprintf(&b, "ptr to %d", s.pointer)
+		fmt.Fprintf(&b, "(%d) ptr to %d", s.id, s.pointer)
 	} else {
 		panic("broken invariant")
 	}
@@ -50,47 +86,47 @@ func (s segment) String() string {
 	return b.String()
 }
 
-func newSegmentData(data string) segment {
-	return segment{makeSegmentID(), -1, data, 0}
+func newSegmentData(data string) Segment {
+	return Segment{makeSegmentID(), -1, data, 0}
 }
 
-func newEmptySegment() segment {
-	return segment{makeSegmentID(), -1, "", 0}
+func newEmptySegment() Segment {
+	return Segment{makeSegmentID(), -1, "", 0}
 }
 
-func newSegmentJumpdest() segment {
+func newSegmentJumpdest() Segment {
 	return newSegmentOpCode(vm.JUMPDEST)
 }
 
-func newSegmentOpCode(op vm.OpCode) segment {
-	return segment{makeSegmentID(), int(op), "", 0}
+func newSegmentOpCode(op vm.OpCode) Segment {
+	return Segment{makeSegmentID(), int(op), "", 0}
 }
 
-func newSegmentPointer(jumpdest int32) segment {
-	return segment{makeSegmentID(), -1, "", jumpdest}
+func newSegmentPointer(jumpdest int32) Segment {
+	return Segment{makeSegmentID(), -1, "", jumpdest}
 }
 
-func (s *segment) isData() bool {
+func (s *Segment) isData() bool {
 	return !s.isOpcode() && !s.isPointer() && len(s.data) >= 2
 }
 
-func (s *segment) isOpcode() bool {
+func (s *Segment) isOpcode() bool {
 	return s.opcode >= 0
 }
 
-func (s *segment) isPointer() bool {
+func (s *Segment) isPointer() bool {
 	return s.pointer != 0
 }
 
-func (s *segment) isPush() bool {
+func (s *Segment) isPush() bool {
 	return s.isOpcode() && vm.OpCode(s.opcode).IsPush()
 }
 
-func (s *segment) isPop() bool {
+func (s *Segment) isPop() bool {
 	return s.isOpcode() && vm.OpCode(s.opcode) == vm.POP
 }
 
-func (s *segment) pointTo(pos int) {
+func (s *Segment) pointTo(pos int) {
 	if !s.isPointer() {
 		panic("not a pointer")
 	}
@@ -110,7 +146,7 @@ func (s *segment) pointTo(pos int) {
 	s.data = code
 }
 
-func (s *segment) getCode() string {
+func (s *Segment) getCode() string {
 	if s.isPointer() && s.data == "" {
 		panic("pointer not initialized")
 	}
@@ -126,7 +162,7 @@ func (s *segment) getCode() string {
 	return s.data
 }
 
-func (s *segment) len() int {
+func (s *Segment) len() int {
 	if s.isPointer() {
 		// The length of this segment is 3 bytes: (PUSH2 AA BB).
 		return 3
@@ -148,14 +184,17 @@ func (s *segment) len() int {
 // | BytecodeVisitor |
 // +-----------------+
 
+type StoredFunction struct{pointerID int32; segments []Segment}
+
 type BytecodeVisitor struct {
-	segments []segment
-	functions map[string]string
+	segments []Segment
+	functions map[int32]StoredFunction
 }
 
 func NewBytecodeVisitor(init bool) *BytecodeVisitor {
 	v := &BytecodeVisitor{
-		segments: make([]segment, 0, 1024),
+		segments: make([]Segment, 0, 1024),
+		functions: make(map[int32]StoredFunction),
 	}
 
 	if init {
@@ -173,7 +212,7 @@ func NewBytecodeVisitor(init bool) *BytecodeVisitor {
 // | Add functions |
 // +---------------+
 
-func (v *BytecodeVisitor) addSegment(s segment) {
+func (v *BytecodeVisitor) addSegment(s Segment) {
 	v.segments = append(v.segments, s)
 }
 
@@ -318,42 +357,68 @@ func (v *BytecodeVisitor) VisitFunction(s *Scope, esp int, call Node) {
 // | Segment functions |
 // +-------------------+
 
-func (v *BytecodeVisitor) getPosition(id int32) int {
-	pos := 0
-	for i := range v.segments {
-		if v.segments[i].id == id {
-			return pos
+// func (v *BytecodeVisitor) getPosition(id int32) int {
+// 	xs := v.getSegments()
+// 	pos := 0
+// 	for i := range xs {
+// 		if xs[i].id == id {
+// 			return pos
+// 		}
+// 		pos += xs[i].len()
+// 	}
+// 	panic(fmt.Sprintf("broken invariant: id=%d", id))
+// }
+
+// func (v *BytecodeVisitor) PopulatePointers() {
+// 	xs := v.getSegments()
+// 	for i := range xs {
+// 		if xs[i].isPointer() {
+// 			pos := v.getPosition(xs[i].pointer)
+// 			xs[i].pointTo(pos)
+// 		}
+// 	}
+// }
+
+func (v *BytecodeVisitor) StoreFunction(functionID, pointerID int32, segments []Segment) {
+	copied := make([]Segment, len(segments))
+	copy(copied, segments)
+	v.functions[functionID] = StoredFunction{pointerID, copied}
+}
+
+func (v *BytecodeVisitor) GetStoredFunction(functionID int32) int32 {
+	if stored, ok := v.functions[functionID]; ok {
+		return stored.pointerID
+	}
+	return -1
+}
+
+func (v *BytecodeVisitor) getSegments() []Segment {
+	if len(v.functions) <= 0 {
+		return v.segments
+	}
+
+	ans := make([]Segment, len(v.segments), 1024)
+	copy(ans, v.segments)
+
+	// Separate the two segments with a STOP.
+	ans = append(ans, newSegmentOpCode(vm.STOP))
+
+	// Now iterate the map in order.
+	keys := make([]int, 0, len(v.functions))
+	for k := range v.functions {
+		keys = append(keys, int(k))
+	}
+	sort.Ints(keys)
+	for _, key := range keys {
+		fn := v.functions[int32(key)]
+		for j := range fn.segments {
+			ans = append(ans, fn.segments[j])
 		}
-		pos += v.segments[i].len()
-	}
-	panic("broken invariant")
-}
-
-func (v *BytecodeVisitor) populatePointers() {
-	for i := range v.segments {
-		if v.segments[i].isPointer() {
-			pos := v.getPosition(v.segments[i].pointer)
-			v.segments[i].pointTo(pos)
-		}
-	}
-}
-
-func (v *BytecodeVisitor) StoreFunction(name, code string) {
-	v.functions[name] = code
-}
-
-func (v *BytecodeVisitor) OptimizeBytecode() {
-	v.segments = OptimizeBytecode(v.segments)
-	v.populatePointers()
-}
-
-func (v *BytecodeVisitor) String() string {
-	v.populatePointers()
-
-	var b strings.Builder
-	for i := range v.segments {
-		b.WriteString(v.segments[i].getCode())
 	}
 
-	return b.String()
+	return ans
+}
+
+func (v *BytecodeVisitor) GetOptimizedSegments() []Segment {
+	return OptimizeBytecode(v.getSegments())
 }

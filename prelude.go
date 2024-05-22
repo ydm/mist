@@ -332,14 +332,24 @@ func handleDefinedFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 		))
 	}
 
-	// Evaluate all arguments.
+	// Begin function prelude [FP].
+
+	// [FP 1] Push the return address before any arguments.
+	returnAddress := newSegmentJumpdest()
+	fmt.Println("RETURN:", returnAddress.id)
+	v.addPointer(returnAddress.id)
+	esp += 1
+
+	// [FP 2] Evaluate all arguments in reverse order.
 	esp += VisitSequence(v, s, esp, args, -1)
 
-	// Create a child scope and store evaluated variables.
+	// [FP 3] Create a child scope and store evaluated variables.
 	childScope := s.NewChildScope()
 	for i := range fn.Args {
 		identifier := fn.Args[i].ValueString
-		position := ebp + len(fn.Args) - 1 - i
+		// Originally it should be ebp + len(args)-1-i, but
+		// there's also the RA pushed, so no -1.
+		position := ebp + len(fn.Args) - i
 		childScope.SetStackVariable(identifier, StackVariable{
 			Origin:     fn.Args[i].Origin,
 			Identifier: identifier,
@@ -347,21 +357,58 @@ func handleDefinedFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 		})
 	}
 
-	// inner := NewBytecodeVisitor(false)
-	// fn.Body.Accept(inner, childScope, esp)
-	// inner.OptimizeBytecode()
-	// code := inner.String()
-	// fmt.Println(name, code)
+	// Stack now is [ARGS... RA].
+	if callPointerID := v.GetStoredFunction(fn.ID); callPointerID < 0 {
+		// Function is not previously visited.  Compile and store.
 
-	fn.Body.Accept(v, childScope, esp)
-	esp += 1
+		inner := NewBytecodeVisitor(false)
 
-	if len(fn.Args) > 0 {
-		v.addOp(vm.OpCode(vm.SWAP1 - 1 + len(fn.Args)))
-		for range fn.Args {
-			v.addOp(vm.POP)
+		callPointer := newSegmentJumpdest()
+		fmt.Println("CALL:", callPointer.id)
+		inner.addSegment(callPointer)
+
+		fn.Body.Accept(inner, childScope, esp) // [ANS, ARGS..., RA]
+		esp += 1
+
+		if len(fn.Args) > 0 {
+			inner.addOp(vm.OpCode(vm.SWAP1 - 1 + len(fn.Args)))
+			for range fn.Args {
+				inner.addOp(vm.POP)
+			}
 		}
+		// Stack is now [ANS, RA]
+
+		esp -= len(fn.Args)   
+		inner.addOp(vm.SWAP1) // [RA, ANS]
+		inner.addOp(vm.JUMP)  // [ANS]
+		esp -= 1
+
+		if ebp != esp-1 {
+			panic(fmt.Sprintf("broken invariant: ebp=%d esp=%d", ebp, esp))
+		}
+
+		xs := inner.GetOptimizedSegments()
+		xs = SegmentsPopulatePointers(xs)
+		code := SegmentsToString(xs)
+
+		v.StoreFunction(fn.ID, callPointer.id, xs)
+
+		fmt.Println(name, code)
 	}
+
+	// [FP 4] Push call pointer and jump.
+	if callPointerID := v.GetStoredFunction(fn.ID); callPointerID >= 0 {
+		v.addPointer(callPointerID)
+		esp += 1
+		v.addOp(vm.JUMP)
+		esp -= 1
+	} else {
+		panic("TODO")
+	}
+
+	// In the end, add the return address segment.  The execution
+	// continues from here.
+	v.addSegment(returnAddress)
 
 	return true
 }
@@ -461,7 +508,7 @@ func fnCase(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	// label.  Indices correspond to clauses.  The very last one
 	// -- `after` -- is placed after the whole (case).
 	after := len(tail)
-	labels := make([]segment, after+1)
+	labels := make([]Segment, after+1)
 	for i := 1; i < after+1; i++ {
 		labels[i] = newSegmentJumpdest()
 	}
@@ -909,5 +956,8 @@ func MakeConstructor(deployedBytecode string) string {
 	v.addOp(vm.RETURN)        // return M[0:L]
 	v.addSegment(label)
 
-	return v.String()
+	xs := v.GetOptimizedSegments()
+	code := SegmentsToString(xs)
+
+	return code
 }

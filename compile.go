@@ -13,8 +13,13 @@ func Compile(program, source string, init bool, offopt uint32) (string, error) {
 	global := NewGlobalScope()
 	ast.Accept(visitor, global, 0)
 
-	visitor.OptimizeBytecode()
-	code := visitor.String()
+	// fmt.Println("BEFORE OPTIMIZATION:", visitor.getSegments())
+	segments := visitor.GetOptimizedSegments()
+	// fmt.Println("AFTER OPTIMIZATION:", segments)
+	segments = SegmentsPopulatePointers(segments)
+	// fmt.Println("AFTER POPULATION:", segments)
+	code := SegmentsToString(segments)
+	// fmt.Println("CODE:", code)
 
 	return code, nil
 }

@@ -1,16 +1,26 @@
 package mist
 
-import "fmt"
+import (
+	"fmt"
+	"sync/atomic"
+)
 
 // +-------+
 // | Scope |
 // +-------+
+
+var _functionID int32 = 0
 
 type LispFunction struct {
 	Origin Origin
 	Name   string
 	Args   []Node
 	Body   Node
+	ID     int32
+}
+
+func makeLispFunctionID() int32 {
+	return atomic.AddInt32(&_functionID, 1)
 }
 
 func NewLispFunction(n Node) (LispFunction, error) {
@@ -74,6 +84,7 @@ func NewLispFunction(n Node) (LispFunction, error) {
 		Name:   identifier.ValueString,
 		Args:   args,
 		Body:   body,
+		ID:     makeLispFunctionID(),
 	}, nil
 }
 
