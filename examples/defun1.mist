@@ -1,7 +1,6 @@
 ;; -*- mode: emacs-lisp -*-
 
-(defun f (x) (+ x x))
+(defun f () 0x45)
+(return (f))
 
-(return (f 0x10))
-
-;; expect 0x400
+;; expect 0x45

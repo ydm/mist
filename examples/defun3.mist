@@ -1,0 +1,9 @@
+;; -*- mode: emacs-lisp -*-
+
+(defun f (x) (+ x x))
+
+(defun g (x) (* x x))
+
+(return (g (f 0x10)))
+
+;; expect 0x400

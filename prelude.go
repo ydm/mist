@@ -336,7 +336,6 @@ func handleDefinedFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 
 	// [FP 1] Push the return address before any arguments.
 	returnAddress := newSegmentJumpdest()
-	fmt.Println("RETURN:", returnAddress.id)
 	v.addPointer(returnAddress.id)
 	esp += 1
 
@@ -364,7 +363,6 @@ func handleDefinedFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 		inner := NewBytecodeVisitor(false)
 
 		callPointer := newSegmentJumpdest()
-		fmt.Println("CALL:", callPointer.id)
 		inner.addSegment(callPointer)
 
 		fn.Body.Accept(inner, childScope, esp) // [ANS, ARGS..., RA]
@@ -388,12 +386,9 @@ func handleDefinedFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 		}
 
 		xs := inner.GetOptimizedSegments()
-		xs = SegmentsPopulatePointers(xs)
-		code := SegmentsToString(xs)
-
-		v.StoreFunction(fn.ID, callPointer.id, xs)
-
-		fmt.Println(name, code)
+		fmt.Println(&fn.Body)
+		ys := SegmentsPopulatePointers(xs)
+		v.StoreFunction(fn.ID, callPointer.id, ys)
 	}
 
 	// [FP 4] Push call pointer and jump.
@@ -957,7 +952,8 @@ func MakeConstructor(deployedBytecode string) string {
 	v.addSegment(label)
 
 	xs := v.GetOptimizedSegments()
-	code := SegmentsToString(xs)
+	ys := SegmentsPopulatePointers(xs)
+	code := SegmentsToString(ys)
 
 	return code
 }

@@ -21,6 +21,7 @@ const (
 
 var _segmentID int32 = 0
 
+// IDs start from 1.
 func makeSegmentID() int32 {
 	return atomic.AddInt32(&_segmentID, 1)
 }
@@ -30,7 +31,7 @@ type Segment struct {
 
 	opcode  int    // valid if >=0
 	data    string //
-	pointer int32  // valid if >0
+	pointer int32  // valid if >=1, foreign key to another segment's id
 }
 
 func SegmentsGetPosition(xs []Segment, id int32) int {
@@ -51,6 +52,11 @@ func SegmentsPopulatePointers(xs []Segment) []Segment {
 	for i := range ys {
 		if ys[i].isPointer() {
 			pos := SegmentsGetPosition(ys, ys[i].pointer)
+
+			// if ys[i].id == 182 {
+			// 	fmt.Printf("POINTING: %v -> %d\n", ys[i], pos)
+			// }
+
 			ys[i].pointTo(pos)
 		}
 	}
@@ -73,13 +79,13 @@ func (s Segment) String() string {
 	fmt.Fprintf(&b, "[")
 
 	if s.isData() {
-		fmt.Fprintf(&b, "(%d) data %s", s.id, s.data)
+		fmt.Fprintf(&b, "%d | data %s", s.id, s.data)
 	} else if s.isOpcode() {
-		fmt.Fprintf(&b, "(%d) op %v", s.id, vm.OpCode(s.opcode))
+		fmt.Fprintf(&b, "%d | op %v", s.id, vm.OpCode(s.opcode))
 	} else if s.isPointer() {
-		fmt.Fprintf(&b, "(%d) ptr to %d", s.id, s.pointer)
+		fmt.Fprintf(&b, "%d | ptr to %d", s.id, s.pointer)
 	} else {
-		panic("broken invariant")
+		fmt.Fprintf(&b, "%d | empty", s.id)
 	}
 
 	fmt.Fprintf(&b, "]")
@@ -138,7 +144,9 @@ func (s *Segment) pointTo(pos int) {
 
 	if s.data != "" && s.data != code {
 		panic(fmt.Sprintf(
-			"trying to reassign a different position: old=%s new=%s",
+			"trying to reassign a different position: id=%d pointer=%d old=%s new=%s",
+			s.id,
+			s.pointer,
 			s.data,
 			code,
 		))
@@ -148,15 +156,11 @@ func (s *Segment) pointTo(pos int) {
 
 func (s *Segment) getCode() string {
 	if s.isPointer() && s.data == "" {
-		panic("pointer not initialized")
+		panic(fmt.Sprintf("pointer not initialized: id=%d pointer=%d", s.id, s.pointer))
 	}
 
 	if s.isOpcode() {
 		return fmt.Sprintf("%02x", byte(s.opcode))
-	}
-
-	if s.data == "" {
-		panic("empty data segment")
 	}
 
 	return s.data
@@ -184,17 +188,20 @@ func (s *Segment) len() int {
 // | BytecodeVisitor |
 // +-----------------+
 
-type StoredFunction struct{pointerID int32; segments []Segment}
+type StoredFunction struct {
+	pointerID int32
+	body      []Segment
+}
 
 type BytecodeVisitor struct {
-	segments []Segment
-	functions map[int32]StoredFunction
+	main []Segment
+	funs map[int32]StoredFunction
 }
 
 func NewBytecodeVisitor(init bool) *BytecodeVisitor {
 	v := &BytecodeVisitor{
-		segments: make([]Segment, 0, 1024),
-		functions: make(map[int32]StoredFunction),
+		main: make([]Segment, 0, 1024),
+		funs: make(map[int32]StoredFunction),
 	}
 
 	if init {
@@ -213,7 +220,7 @@ func NewBytecodeVisitor(init bool) *BytecodeVisitor {
 // +---------------+
 
 func (v *BytecodeVisitor) addSegment(s Segment) {
-	v.segments = append(v.segments, s)
+	v.main = append(v.main, s)
 }
 
 func (v *BytecodeVisitor) addHex(code string) {
@@ -382,37 +389,40 @@ func (v *BytecodeVisitor) VisitFunction(s *Scope, esp int, call Node) {
 func (v *BytecodeVisitor) StoreFunction(functionID, pointerID int32, segments []Segment) {
 	copied := make([]Segment, len(segments))
 	copy(copied, segments)
-	v.functions[functionID] = StoredFunction{pointerID, copied}
+	v.funs[functionID] = StoredFunction{pointerID, copied}
 }
 
 func (v *BytecodeVisitor) GetStoredFunction(functionID int32) int32 {
-	if stored, ok := v.functions[functionID]; ok {
+	if stored, ok := v.funs[functionID]; ok {
 		return stored.pointerID
 	}
 	return -1
 }
 
 func (v *BytecodeVisitor) getSegments() []Segment {
-	if len(v.functions) <= 0 {
-		return v.segments
+	n := len(v.main)
+	ans := make([]Segment, n, 2*n)
+	copy(ans, v.main)
+
+	// If there are no functions defined, return the main section
+	// alone.
+	if len(v.funs) <= 0 {
+		return ans
 	}
 
-	ans := make([]Segment, len(v.segments), 1024)
-	copy(ans, v.segments)
-
-	// Separate the two segments with a STOP.
+	// Separate the two sections with a STOP.
 	ans = append(ans, newSegmentOpCode(vm.STOP))
 
 	// Now iterate the map in order.
-	keys := make([]int, 0, len(v.functions))
-	for k := range v.functions {
+	keys := make([]int, 0, len(v.funs))
+	for k := range v.funs {
 		keys = append(keys, int(k))
 	}
 	sort.Ints(keys)
 	for _, key := range keys {
-		fn := v.functions[int32(key)]
-		for j := range fn.segments {
-			ans = append(ans, fn.segments[j])
+		fn := v.funs[int32(key)]
+		for j := range fn.body {
+			ans = append(ans, fn.body[j])
 		}
 	}
 
