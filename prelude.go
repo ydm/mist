@@ -354,25 +354,48 @@ func handleDefinedFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 			Identifier: identifier,
 			Position:   position,
 		})
-	}
+	} // Stack is now [ARGS... RA].
 
-	// Stack is now [ARGS... RA].
-	fn.Body.Accept(v, childScope, esp)
-	esp += 1
+	if ptr, ok := s.GetFunctionPointer(name); !ok {
+		start := newSegmentJumpdest()
+		v.addSegment(start)
+		s.SetFunctionCodePointer(name, start.id)
 
-	// Stack is now [ANS, ARGS... RA].
-	if len(fn.Args) > 0 {
-		v.addOp(vm.OpCode(vm.SWAP1 - 1 + len(fn.Args)))
-		for range fn.Args {
-			v.addOp(vm.POP)
-			esp -= 1
+		// First time calling this function.  Visit body and
+		// store function pointer.
+		fn.Body.Accept(v, childScope, esp) // [ANS ARGS... RA]
+		esp += 1
+
+		if len(fn.Args) > 0 {
+			v.addOp(vm.OpCode(vm.SWAP1 - 1 + len(fn.Args)))
+			for range fn.Args {
+				v.addOp(vm.POP)
+			}
 		}
-	}
+		esp -= len(fn.Args)
 
-	// Stack is now [ANS, RA].
-	v.addOp(vm.SWAP1) // [RA, ANS]
-	v.addOp(vm.JUMP)  // [ANS]
-	esp -= 1
+		// Stack is now [ANS RA].
+		v.addOp(vm.SWAP1) // [RA ANS]
+		v.addOp(vm.JUMP)  // [ANS]
+		esp -= 1
+	} else {
+		// This function was called before.  Jump to its
+		// object code.
+
+		v.pushU64(uint64(ptr)) // [CA ARGS... RA]
+		esp += 1
+
+		v.addOp(vm.JUMP) // [ARGS... RA]
+		esp -= 1
+
+		// The function body then executes and...
+		// 1. Pops all arguments.
+		esp -= len(fn.Args)
+		// 2. Pushes a single answer.
+		esp += 1
+		// 3. Jumps back to the RA.
+		esp -= 1
+	} // Stack ins now [ANS].
 
 	// In the end, add the return address segment.  The execution
 	// continues from here.

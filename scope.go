@@ -7,10 +7,11 @@ import "fmt"
 // +-------+
 
 type LispFunction struct {
-	Origin Origin
-	Name   string
-	Args   []Node
-	Body   Node // Wrapped in (progn).
+	Origin      Origin
+	Name        string
+	Args        []Node
+	Body        Node  // Wrapped in (progn).
+	CodePointer int32 //
 }
 
 func NewLispFunction(n Node) (LispFunction, error) {
@@ -86,6 +87,8 @@ type StackVariable struct {
 type Scope struct {
 	Constants        map[string]Node
 	Functions        map[string]LispFunction
+	FunctionPointers map[string]int32
+
 	StackVariables   map[string]StackVariable
 	StorageVariables map[string]int32
 
@@ -96,6 +99,8 @@ func NewScope(parent *Scope) *Scope {
 	return &Scope{
 		Constants:        make(map[string]Node),
 		Functions:        make(map[string]LispFunction),
+		FunctionPointers: make(map[string]int32),
+
 		StackVariables:   make(map[string]StackVariable),
 		StorageVariables: make(map[string]int32),
 
@@ -133,6 +138,15 @@ func (s *Scope) GetFunction(identifier string) (LispFunction, bool) {
 		return s.Parent.GetFunction(identifier)
 	}
 	return fn, ok
+}
+
+// TODO: Rename to "call address"!!!
+func (s *Scope) GetFunctionPointer(identifier string) (int32, bool) {
+	ptr, ok := s.FunctionPointers[identifier]
+	if !ok && s.Parent != nil {
+		return s.Parent.GetFunctionPointer(identifier)
+	}
+	return ptr, ok	
 }
 
 func (s *Scope) GetStackVariable(identifier string) (StackVariable, bool) {
@@ -180,4 +194,18 @@ func (s *Scope) SetStorageVariable(name string, position int32) {
 		panic("TODO")
 	}
 	s.StorageVariables[name] = position
+}
+
+// TODO: Use `sid` everywhere where the meaning is "segment id".
+func (s *Scope) SetFunctionCodePointer(identifier string, sid int32) {
+	if sid <= 0 {
+		panic("TODO")
+	}
+
+	// FunctionPointers match Functions.
+	if _, ok := s.Functions[identifier]; ok {
+		s.FunctionPointers[identifier] = sid
+	} else {
+		s.Parent.SetFunctionCodePointer(identifier, sid)
+	}
 }
