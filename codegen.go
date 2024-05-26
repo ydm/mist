@@ -2,7 +2,6 @@ package mist
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 	"sync/atomic"
 
@@ -16,7 +15,7 @@ const (
 )
 
 // +---------+
-// | segment |
+// | Segment |
 // +---------+
 
 var _segmentID int32 = 0
@@ -195,13 +194,11 @@ type StoredFunction struct {
 
 type BytecodeVisitor struct {
 	main []Segment
-	funs map[int32]StoredFunction
 }
 
 func NewBytecodeVisitor(init bool) *BytecodeVisitor {
 	v := &BytecodeVisitor{
-		main: make([]Segment, 0, 1024),
-		funs: make(map[int32]StoredFunction),
+		main: make([]Segment, 0, 2056),
 	}
 
 	if init {
@@ -364,68 +361,10 @@ func (v *BytecodeVisitor) VisitFunction(s *Scope, esp int, call Node) {
 // | Segment functions |
 // +-------------------+
 
-// func (v *BytecodeVisitor) getPosition(id int32) int {
-// 	xs := v.getSegments()
-// 	pos := 0
-// 	for i := range xs {
-// 		if xs[i].id == id {
-// 			return pos
-// 		}
-// 		pos += xs[i].len()
-// 	}
-// 	panic(fmt.Sprintf("broken invariant: id=%d", id))
-// }
-
-// func (v *BytecodeVisitor) PopulatePointers() {
-// 	xs := v.getSegments()
-// 	for i := range xs {
-// 		if xs[i].isPointer() {
-// 			pos := v.getPosition(xs[i].pointer)
-// 			xs[i].pointTo(pos)
-// 		}
-// 	}
-// }
-
-func (v *BytecodeVisitor) StoreFunction(functionID, pointerID int32, segments []Segment) {
-	copied := make([]Segment, len(segments))
-	copy(copied, segments)
-	v.funs[functionID] = StoredFunction{pointerID, copied}
-}
-
-func (v *BytecodeVisitor) GetStoredFunction(functionID int32) int32 {
-	if stored, ok := v.funs[functionID]; ok {
-		return stored.pointerID
-	}
-	return -1
-}
-
 func (v *BytecodeVisitor) getSegments() []Segment {
 	n := len(v.main)
 	ans := make([]Segment, n, 2*n)
 	copy(ans, v.main)
-
-	// If there are no functions defined, return the main section
-	// alone.
-	if len(v.funs) <= 0 {
-		return ans
-	}
-
-	// Separate the two sections with a STOP.
-	ans = append(ans, newSegmentOpCode(vm.STOP))
-
-	// Now iterate the map in order.
-	keys := make([]int, 0, len(v.funs))
-	for k := range v.funs {
-		keys = append(keys, int(k))
-	}
-	sort.Ints(keys)
-	for _, key := range keys {
-		fn := v.funs[int32(key)]
-		for j := range fn.body {
-			ans = append(ans, fn.body[j])
-		}
-	}
-
 	return ans
 }
 

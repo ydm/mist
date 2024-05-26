@@ -356,50 +356,23 @@ func handleDefinedFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 		})
 	}
 
-	// Stack now is [ARGS... RA].
-	if callPointerID := v.GetStoredFunction(fn.ID); callPointerID < 0 {
-		// Function is not previously visited.  Compile and store.
+	// Stack is now [ARGS... RA].
+	fn.Body.Accept(v, childScope, esp)
+	esp += 1
 
-		inner := NewBytecodeVisitor(false)
-
-		callPointer := newSegmentJumpdest()
-		inner.addSegment(callPointer)
-
-		fn.Body.Accept(inner, childScope, esp) // [ANS, ARGS..., RA]
-		esp += 1
-
-		if len(fn.Args) > 0 {
-			inner.addOp(vm.OpCode(vm.SWAP1 - 1 + len(fn.Args)))
-			for range fn.Args {
-				inner.addOp(vm.POP)
-			}
+	// Stack is now [ANS, ARGS... RA].
+	if len(fn.Args) > 0 {
+		v.addOp(vm.OpCode(vm.SWAP1 - 1 + len(fn.Args)))
+		for range fn.Args {
+			v.addOp(vm.POP)
+			esp -= 1
 		}
-		// Stack is now [ANS, RA]
-
-		esp -= len(fn.Args)   
-		inner.addOp(vm.SWAP1) // [RA, ANS]
-		inner.addOp(vm.JUMP)  // [ANS]
-		esp -= 1
-
-		if ebp != esp-1 {
-			panic(fmt.Sprintf("broken invariant: ebp=%d esp=%d", ebp, esp))
-		}
-
-		xs := inner.GetOptimizedSegments()
-		fmt.Println(&fn.Body)
-		ys := SegmentsPopulatePointers(xs)
-		v.StoreFunction(fn.ID, callPointer.id, ys)
 	}
 
-	// [FP 4] Push call pointer and jump.
-	if callPointerID := v.GetStoredFunction(fn.ID); callPointerID >= 0 {
-		v.addPointer(callPointerID)
-		esp += 1
-		v.addOp(vm.JUMP)
-		esp -= 1
-	} else {
-		panic("TODO")
-	}
+	// Stack is now [ANS, RA].
+	v.addOp(vm.SWAP1) // [RA, ANS]
+	v.addOp(vm.JUMP)  // [ANS]
+	esp -= 1
 
 	// In the end, add the return address segment.  The execution
 	// continues from here.

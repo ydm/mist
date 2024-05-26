@@ -17,7 +17,7 @@ async function main() {
     };
     const create: TransactionResponse = await hero.sendTransaction({
         // type: 2,
-        data: "0x60308061000c6000396000f36080604052602060405161001b6100166010610020565b610028565b8152f3005b808101905090565b80810290509056",
+        data: "",
     });
     const contractAddress: string = hre.ethers.getCreateAddress(create);
     console.log("ADDR:", contractAddress);
