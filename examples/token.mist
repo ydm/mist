@@ -126,6 +126,10 @@
 
 (defun mint () (notPayable) (_update 0 (caller) 1))
 
+;; +------------+
+;; | Dispatcher |
+;; +------------+
+
 (dispatch
  ;; ERC-20 Metadata -----+
  ("name()"         name) ;
