@@ -143,6 +143,9 @@ func TestCompileDefun(t *testing.T) {
 
 		"(defun f () 69) (+ (f) (f))",
 
+		"(defun f () 1) (defun g () (+ (f) 2)) (g)",
+		"(defun f () 1) (defun g () (+ (f) 2 (f))) (g)",
+
 		// // "(defun f (x y) (- x y y)) (f 0x30 0x10)",
 	}
 
@@ -157,6 +160,9 @@ func TestCompileDefun(t *testing.T) {
 
 		"6100085b604590565b610010610003565b01",
 
+		"6100125b600261000e5b600190565b0190565b",
+		"61001b5b61000c5b600190565b600201610017610007565b0190565b",
+		
 		// "60106020818103915050",
 	}
 
