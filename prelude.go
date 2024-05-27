@@ -625,7 +625,7 @@ func fnEmit3(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	args := assertNargsEq("emit3", call, 4) // TODO
 	zero, additional, value := args[0], args[1:3], args[3]
 
-	if zero.Type != NodeString {
+	if !zero.IsString() {
 		panic("want string")
 	}
 
@@ -867,7 +867,7 @@ func fnReturn(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	args := assertNargsEq("return", call, 1)
 	arg := args[0]
 
-	if arg.Type == NodeString {
+	if arg.IsString() {
 		length := len(arg.ValueString)
 		hex := EncodeString(arg.ValueString)
 
@@ -935,7 +935,7 @@ func fnRevert(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 	args := assertNargsEq("revert", call, 1)
 	arg := args[0]
 
-	if arg.Type == NodeString {
+	if arg.IsString() {
 		encoded := EncodeWithSignature("Error(string)", arg.ValueString)
 
 		// Load free memory pointer.
