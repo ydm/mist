@@ -10,14 +10,11 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-// EncodeRLP in RLP.
 func EncodeRLP(x any) string {
 	b := bytes.NewBuffer([]byte{})
 	if err := rlp.Encode(b, x); err != nil {
 		panic(err)
 	}
-
-	// zeroes := 32 - b.Len()
 
 	var s strings.Builder
 	for {
@@ -30,10 +27,6 @@ func EncodeRLP(x any) string {
 		}
 		fmt.Fprintf(&s, "%02x", x)
 	}
-
-	// for i := 0; i < zeroes; i++ {
-	// 	fmt.Fprintf(&s, "00")
-	// }
 
 	return s.String()
 }
