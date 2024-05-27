@@ -139,6 +139,7 @@ These are the only functions do not result in an expression:
 
 ### TODO:
   - Implement real macros.
+  - Proper error reporting, no `panic()`s.
   - `Segment` should be an interface instead of a stateful mess.
   - Solidity offers a rich assortment of opcode optimizations; perhaps reuse?
   - Clean up the public/private mess.
