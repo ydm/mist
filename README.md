@@ -3,6 +3,13 @@
 [sad]: ## "that's a joke"
 The [much-needed][sad] Lisp language for the Ethereum EVM.
 
+### Running Mist
+
+```
+$ make
+$ ./mist < source.mist
+```
+
 ### Quickstart
 
 Want to waste some gas? Say no more:
