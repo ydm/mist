@@ -382,7 +382,7 @@ func handleDefinedFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 		// This function was called before.  Jump to its
 		// object code.
 
-		v.pushU64(uint64(ptr)) // [CA ARGS... RA]
+		v.addSegment(newSegmentPointer(ptr)) // [CA ARGS... RA]
 		esp += 1
 
 		v.addOp(vm.JUMP) // [ARGS... RA]
