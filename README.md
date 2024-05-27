@@ -45,6 +45,8 @@ Public contracts most likely would include a `dispatcher`:
  ("approve(address,uint256)"                   approve))
 ```
 
+For an example implementation of an ERC-20 token, please see [charm.mist](examples/charm.mist).
+
 # Standard library
 
 ### `nil` (`false`) values:
