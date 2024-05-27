@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	// source := "examples/something.mist"
+	// source := argv[1]
 	// stream, err := os.Open(source)
 	// if err != nil {
 	// 	panic(err)
@@ -31,7 +31,7 @@ func main() {
 	const (
 		// TODO: Turn into cli args.
 		init    = true
-		verbose = false
+		verbose = true
 	)
 
 	// Decorate with a contract constructor.
