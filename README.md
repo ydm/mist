@@ -12,7 +12,7 @@ $ ./mist < source.mist
 
 ### Quickstart
 
-Want to waste some gas? Say no more:
+Want to waste some resources? Say no more:
 
 ```Lisp
 (defun fib (i)
