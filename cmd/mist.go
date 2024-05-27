@@ -32,6 +32,7 @@ func main() {
 		// TODO: Turn into cli args.
 		init    = true
 		verbose = true
+		decompile = false
 	)
 
 	// Decorate with a contract constructor.
@@ -56,7 +57,9 @@ func main() {
 		fmt.Println("0x" + code)
 		fmt.Println()
 
-		fmt.Print(mist.Decompile(code))
+		if decompile {
+			fmt.Print(mist.Decompile(code))
+		}
 	} else {
 		ctor := mist.MakeConstructor(code)
 		fmt.Print("0x" + ctor + code)
