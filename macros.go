@@ -17,28 +17,23 @@ func handleMacroFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	switch fn {
 	case "<=":
 		fnLTE(v, s, esp, call)
-		return true
 	case ">=":
 		fnGTE(v, s, esp, call)
-		return true
 	case "apply":
 		fnApply(v, s, esp, call)
-		return true
 	case "dispatch":
 		fnDispatch(v, s, esp, call)
-		return true
 	case "let":
 		fnLet(v, s, esp, call)
-		return true
 	case "unless":
 		fnUnless(v, s, esp, call)
-		return true
 	case "when":
 		fnWhen(v, s, esp, call)
-		return true
 	default:
 		return false
 	}
+
+	return true
 }
 
 // fnLTE translates (<= x y) to (not (> x y))

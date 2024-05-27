@@ -17,5 +17,5 @@ echo "bytecode: ${BYTECODE}"
 sed -i -r 's/data: "",/data: "0xabcd",/' "playground/scripts/$SCRIPT"
 
 sed -i -r \
-    "s/data: \"0x[0-9A-Fa-f]+\",/data: \"${BYTECODE}\",/" \
+    "0,/data:/{s/data: \"0x[0-9A-Fa-f]+\",/data: \"${BYTECODE}\",/}" \
     "playground/scripts/$SCRIPT"

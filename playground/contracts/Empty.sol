@@ -3,20 +3,16 @@
 pragma solidity ^0.8.24;
 
 contract Empty {
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
+
     uint256 one;
 
-    function something() external payable returns (uint256) {
-        revert("asd");
+    function something() public pure returns (uint256) {
         return 69;
     }
 
-    constructor() payable {}
-
-    /*
-    fallback() external payable {
+    function name() public payable {
+        emit Transfer(msg.sender, msg.sender, 123);
     }
-
-    receive() external payable {
-    }
-    */
 }

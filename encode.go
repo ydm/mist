@@ -37,3 +37,15 @@ func EncodeRLP(x any) string {
 
 	return s.String()
 }
+
+func EncodeString(s string) string {
+	if len(s) > 32 {
+		panic("TODO")
+	}
+
+	var b strings.Builder
+	for i := range len(s) {
+		fmt.Fprintf(&b, "%02x", s[i])
+	}
+	return padRight32(b.String())
+}

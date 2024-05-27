@@ -1,0 +1,12 @@
+;; -*- mode: emacs-lisp -*-
+
+(defun fib (i)
+  (if (< i 2)
+      i
+    (+ (fib (- i 2))
+       (fib (- i 1)))))
+
+(return (fib 20))
+
+;; expect (fib 10) to yield   55.
+;; expect (fib 20) to yield 6765.

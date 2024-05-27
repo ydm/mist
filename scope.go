@@ -7,11 +7,10 @@ import "fmt"
 // +-------+
 
 type LispFunction struct {
-	Origin      Origin
-	Name        string
-	Args        []Node
-	Body        Node  // Wrapped in (progn).
-	CodePointer int32 //
+	Origin Origin
+	Name   string
+	Args   []Node
+	Body   Node // Wrapped in (progn).
 }
 
 func NewLispFunction(n Node) (LispFunction, error) {
@@ -81,13 +80,13 @@ func NewLispFunction(n Node) (LispFunction, error) {
 type StackVariable struct {
 	Origin     Origin
 	Identifier string
-	Position   int
+	Position   int		// Absolute position in stack.
 }
 
 type Scope struct {
-	Constants        map[string]Node
-	Functions        map[string]LispFunction
-	FunctionPointers map[string]int32
+	Constants     map[string]Node
+	Functions     map[string]LispFunction
+	CallAddresses map[string]int32
 
 	StackVariables   map[string]StackVariable
 	StorageVariables map[string]int32
@@ -97,9 +96,9 @@ type Scope struct {
 
 func NewScope(parent *Scope) *Scope {
 	return &Scope{
-		Constants:        make(map[string]Node),
-		Functions:        make(map[string]LispFunction),
-		FunctionPointers: make(map[string]int32),
+		Constants:     make(map[string]Node),
+		Functions:     make(map[string]LispFunction),
+		CallAddresses: make(map[string]int32),
 
 		StackVariables:   make(map[string]StackVariable),
 		StorageVariables: make(map[string]int32),
@@ -140,13 +139,12 @@ func (s *Scope) GetFunction(identifier string) (LispFunction, bool) {
 	return fn, ok
 }
 
-// TODO: Rename to "call address"!!!
-func (s *Scope) GetFunctionPointer(identifier string) (int32, bool) {
-	ptr, ok := s.FunctionPointers[identifier]
+func (s *Scope) GetCallAddress(identifier string) (int32, bool) {
+	ptr, ok := s.CallAddresses[identifier]
 	if !ok && s.Parent != nil {
-		return s.Parent.GetFunctionPointer(identifier)
+		return s.Parent.GetCallAddress(identifier)
 	}
-	return ptr, ok	
+	return ptr, ok
 }
 
 func (s *Scope) GetStackVariable(identifier string) (StackVariable, bool) {
@@ -196,16 +194,15 @@ func (s *Scope) SetStorageVariable(name string, position int32) {
 	s.StorageVariables[name] = position
 }
 
-// TODO: Use `sid` everywhere where the meaning is "segment id".
-func (s *Scope) SetFunctionCodePointer(identifier string, sid int32) {
-	if sid <= 0 {
+func (s *Scope) SetCallAddress(identifier string, segmentID int32) {
+	if segmentID <= 0 {
 		panic("TODO")
 	}
 
-	// FunctionPointers match Functions.
+	// CallAddresses match Functions one-to-one.
 	if _, ok := s.Functions[identifier]; ok {
-		s.FunctionPointers[identifier] = sid
+		s.CallAddresses[identifier] = segmentID
 	} else {
-		s.Parent.SetFunctionCodePointer(identifier, sid)
+		s.Parent.SetCallAddress(identifier, segmentID)
 	}
 }

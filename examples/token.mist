@@ -1,29 +1,41 @@
 ;; -*- mode: emacs-lisp -*-
 
-;; event Transfer(address indexed from, address indexed to, uint256 value);
-;; event Approval(address indexed owner, address indexed spender, uint256 value);
-
+;; Events:
+;;   - event Transfer(address indexed from, address indexed to, uint256 value)
+;;   - event Approval(address indexed owner, address indexed spender, uint256 value)
+;;
+;;
 ;; Views:
-;;
-;; function totalSupply() external view returns (uint256);
-;; function balanceOf(address account) external view returns (uint256);
-;; function allowance(address owner, address spender) external view returns (uint256);
-;;
+;;   - function totalSupply() external view returns (uint256)
+;;   - function balanceOf(address account) external view returns (uint256)
+;;   - function allowance(address owner, address spender) external view returns (uint256)
+;;   - [METADATA] function name() public view returns (string memory)
+;;   - [METADATA] function symbol() public view returns (string memory)
+;;   - [METADATA] function decimals() public view returns (uint8)
+;;   - [CAPPED] function cap() public view returns (uint256)
 ;;
 ;;
 ;; Non-payable:
-;;
-;; function transfer(address to, uint256 value) external returns (bool);
-;; function approve(address spender, uint256 value) external returns (bool);
-;; function transferFrom(address from, address to, uint256 value) external returns (bool);
+;;   - function transfer(address to, uint256 value) external returns (bool);
+;;   - function approve(address spender, uint256 value) external returns (bool);
+;;   - function transferFrom(address from, address to, uint256 value) external returns (bool);
+;;   - [CUSTOM] function mint()
+
+;; +-----------+
+;; | Constants |
+;; +-----------+
+
+(defconst max-uint256 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) ; 2^256-1
+(defconst address-mask                        0xffffffffffffffffffffffffffffffffffffffff) ; 2^160-1
+(defconst maxSupply 0x3dbb)
 
 ;; +---------+
 ;; | Storage |
 ;; +---------+
 
-(defvar _balances    (mapping address uint256))
-(defvar _allowances  (mapping address (mapping address uint256)))
-(defvar _totalSupply uint256)
+(defvar *balances*    (mapping address uint256))
+(defvar *allowances*  (mapping address (mapping address uint256)))
+(defvar *totalSupply* uint256)
 
 ;; +-----------+
 ;; | Modifiers |
@@ -38,86 +50,102 @@
 ;; +---------+
 
 (defun _assertAddress (address)
-  (when (= address 0)
-    (revert "zero address"))
-  (defconst address-mask 0xffffffffffffffffffffffffffffffffffffffff) ; 2^160 - 1
-  (let ((masked (logand address address-mask)))
-    (unless (= address masked)
-      (revert "invalid address"))))
+  (when (>> address 160)
+    (revert "invalid address")))
 
 (defun _update (from to value)
-  (let ((fromBalance (balanceOf from))
-        (toBalance   (balanceOf to  )))
-    (when (< fromBalance value)
-      (revert "insufficient balance"))
-    (puthash _balances (- fromBalance value) from)
-    (puthash _balances (+ toBalance   value) to  )
-    ;; TODO: (emit Transfer)
-    ))
+  (if from
+      (let ((fromBalance (balanceOf from)))
+        (if (< fromBalance value)
+            (revert "insufficient balance")
+          (puthash *balances* (- fromBalance value) from)))
+    (when (> (setq *totalSupply* (+ *totalSupply* value)) maxSupply)
+      (revert "exceeded cap")))
+  (if to
+      (puthash *balances* (+ (balanceOf to) value) to)
+    (setq *totalSupply* (- *totalSupply* value)))
+  (emit3 "Transfer(address,address,uint256)" from to value))
+
+(defun _transfer (from to value)
+  (unless from (revert "invalid sender"))
+  (unless to   (revert "invalid receiver"))
+  (_update from to value))
+
+(defun _approve (owner spender value emitEvent)
+  (puthash *allowances* value owner spender)
+  (when emitEvent
+    (emit3 "Approval(address,address,uint256)" owner spender value)))
+
+(defun _spendAllowance (owner spender value)
+  (let ((currentAllowance (allowance owner spender)))
+    (unless (= currentAllowance max-uint256)
+      (if (< currentAllowance value)
+          (revert "insufficient allowance")
+        (_approve owner spender (- currentAllowance value) nil)))))
 
 ;; +------------------+
 ;; | Public functions |
 ;; +------------------+
 
-(defun totalSupply () _totalSupply)
+(defun name () (notPayable) (return "Lucky Charm"))
+(defun symbol () (notPayable) (return "CHARM"))
+(defun decimals () (notPayable) 0)
+(defun totalSupply () (notPayable) *totalSupply*)
 
 (defun balanceOf (address)
-  ;; TODO: Should that be non-payable?
+  (notPayable)
   (_assertAddress address)
-  (gethash _balances address))
+  (gethash *balances* address))
 
 (defun transfer (to value)
   (notPayable)
   (_assertAddress to)
-  (notPayable))
+  (_transfer (caller) to value)
+  t)
 
 (defun allowance (owner spender)
+  (notPayable)
   (_assertAddress owner)
   (_assertAddress spender)
-  (gethash _allowances owner spender))
+  (gethash *allowances* owner spender))
 
 (defun approve (spender value)
   (notPayable)
-  (_assertAddress spender)
-  (puthash _allowances value (caller) spender))
+  (_approve (caller) spender value t)
+  t)
 
 (defun transferFrom (from to value)
   (notPayable)
   (_assertAddress from)
   (_assertAddress to)
-  
-  (unless (<= value (allowance from (caller)))
-    (revert "TODO: not allowed"))
-  
-  (unless (<= value (balanceOf from))
-    (revert "TODO: not enough"))
-  
-  (_update from to value))
+  (_spendAllowance from (caller) value)
+  (_transfer from to value)
+  t)
 
-(defun name () (revert "Emacs Lisp Token"))
-(defun symbol () (revert "ELT"))
-(defun decimals () 18)
+(defun cap () (notPayable) maxSupply)
 
-(defun mint ()
-  (notPayable)
-  (unless (< _totalSupply (ether "15803")) ; 3dbb
-    (revert "maximum token limit reached"))
-  (puthash _balances
-           (+ (gethash _balances (caller)) (ether "1"))
-           (caller))
-  (setq _totalSupply (+ _totalSupply (ether "1"))))
+(defun mint () (notPayable) (_update 0 (caller) 1))
 
 (dispatch
- ;; IERC20
- ("totalSupply()" totalSupply)
- ("balanceOf(address)" balanceOf)
- ("transfer(address,uint256)" transfer)
- ("allowance(address,address)" allowance)
- ("approve(address,uint256)" approve)
- ("transferFrom(address,address,uint256)" transferFrom)
- ;; IERC20Metadata
- ("name()" name)
- ("symbol()" symbol)
- ("decimals()" decimals)
- ;; Other
- ("mint()" mint))
+ ;; ERC-20 Metadata -----+
+ ("name()"         name) ;
+ ("symbol()"     symbol) ;
+ ("decimals()" decimals) ;
+ ;; ---------------------+
+ ;;
+ ;; ERC-20 ---------------------------------------------+
+ ("totalSupply()"                          totalSupply) ;
+ ("balanceOf(address)"                       balanceOf) ;
+ ("transfer(address,uint256)"                 transfer) ;
+ ("allowance(address,address)"               allowance) ;
+ ("approve(address,uint256)"                   approve) ;
+ ("transferFrom(address,address,uint256)" transferFrom) ;
+ ;; ----------------------------------------------------+
+ ;;
+ ;; ERC-20 Capped --+
+ ("cap()" cap)      ;
+ ;; ----------------+
+ ;;
+ ;; Minting ------+
+ ("mint()" mint)) ;
+ ;; --------------+

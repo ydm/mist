@@ -22,15 +22,15 @@ func EncodeWithSignature(signature string, args ...any) string {
 		inputs[i] = fmt.Sprintf(`{"type": "%s"}`, t)
 	}
 
-	def := fmt.Sprintf(`[{
+	definition := fmt.Sprintf(`[{
 		"type": "function",
 		"name": "%s",
 		"inputs": [%s],
-		"outputs": [%s],
+		"outputs": [],
 		"stateMutability": "payable"
-	}]`, name, strings.Join(inputs, ","), "")
+	}]`, name, strings.Join(inputs, ","))
 
-	encoder, err := abi.JSON(strings.NewReader(def))
+	encoder, err := abi.JSON(strings.NewReader(definition))
 	if err != nil {
 		panic(err)
 	}

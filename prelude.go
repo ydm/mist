@@ -260,54 +260,43 @@ func handleBuiltinFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	switch fn {
 	case "and":
 		fnAnd(v, s, esp, call)
-		return true
 	case "case":
 		fnCase(v, s, esp, call)
-		return true
 	case "defconst":
 		fnDefconst(v, s, esp, call)
-		return true
 	case "defun":
 		fnDefun(v, s, esp, call)
-		return true
 	case "defvar":
 		fnDefvar(v, s, esp, call)
-		return true
+	case "emit3": // (emit3 "Transfer(address,address,uint256)" topic topic value)
+		fnEmit3(v, s, esp, call)
 	case "ether":
 		fnEther(v, s, esp, call)
-		return true
 	case "gethash": // (gethash table keys...)
 		fnGethash(v, s, esp, call)
-		return true
+	// case "hash": // (hash "something")
+	// 	fnHash(v, s, esp, call)
 	case "if":
 		fnIf(v, s, esp, call)
-		return true
 	case "progn":
 		fnProgn(v, s, esp, call)
-		return true
 	case "puthash": // (puthash table value keys...)
 		fnPuthash(v, s, esp, call)
-		return true
 	case "return": // (return value)
 		fnReturn(v, s, esp, call)
-		return true
 	case "revert": // (revert value)
 		fnRevert(v, s, esp, call)
-		return true
 	case "selector":
 		fnSelector(v, s, esp, call)
-		return true
 	case "setq":
 		fnSetq(v, s, esp, call)
-		return true
 	default:
 		return false
 	}
+
+	return true
 }
 
-// Right now (defun) functions are inlined in the code.  Perhaps I
-// should create a separate data segment for (defun) and introduce
-// (definline) for inline functions?
 func handleDefinedFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 	ebp := esp
 
@@ -356,10 +345,10 @@ func handleDefinedFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 		})
 	} // Stack is now [ARGS... RA].
 
-	if ptr, ok := s.GetFunctionPointer(name); !ok {
+	if ptr, ok := s.GetCallAddress(name); !ok {
 		start := newSegmentJumpdest()
 		v.addSegment(start)
-		s.SetFunctionCodePointer(name, start.id)
+		s.SetCallAddress(name, start.id)
 
 		// First time calling this function.  Visit body and
 		// store function pointer.
@@ -389,9 +378,10 @@ func handleDefinedFunc(v *BytecodeVisitor, s *Scope, esp int, call Node) bool {
 		esp -= 1
 
 		// The function body then executes and...
+		//
 		// 1. Pops all arguments.
 		esp -= len(fn.Args)
-		// 2. Pushes a single answer.
+		// 2. Pushes a single ANSwer.
 		esp += 1
 		// 3. Jumps back to the RA.
 		esp -= 1
@@ -628,6 +618,55 @@ func fnDefvar(v *BytecodeVisitor, s *Scope, _ int, call Node) {
 	v.VisitNil()
 }
 
+// I ask for forgiveness for the way this is implemented.
+func fnEmit3(v *BytecodeVisitor, s *Scope, esp int, call Node) {
+	ebp := esp
+
+	args := assertNargsEq("emit3", call, 4) // TODO
+	zero, additional, value := args[0], args[1:3], args[3]
+
+	if zero.Type != NodeString {
+		panic("want string")
+	}
+
+	var (
+		h Hash = Keccak256Hash([]byte(zero.ValueString))
+		b strings.Builder
+	)
+	for i := range len(h) {
+		b.WriteString(fmt.Sprintf("%02x", h[i]))
+	}
+	hex := b.String()
+
+	VisitSequence(v, s, esp, additional, -1) // [T1 T2]
+	esp += len(additional)                   //
+	v.addOp(vm.PUSH32)                       //
+	v.addHex(hex)                            // [MA T1 T2]
+	esp += 1                                 //
+	v.pushU64(0x20)                          // [20 MA T1 T2]
+	esp += 1                                 //
+	v.pushU64(freeMemoryPointer)             // [FP 20 MA T1 T2]
+	esp += 1                                 //
+	v.addOp(vm.MLOAD)                        // [FM 20 MA T1 T2]
+	esp += 0                                 //
+	value.Accept(v, s, esp)                  // [XX FM 20 MA T1 T2]
+	esp += 1                                 //
+	v.addOp(vm.DUP2)                         // [FM XX FM 20 MA T1 T2]
+	esp += 1                                 //
+	v.addOp(vm.MSTORE)                       // [FM 20 MA T1 T2]
+	esp -= 2                                 //
+	v.addOp(vm.LOG3)                         // []
+	esp -= len(additional) + 3               //
+
+	// All expressions have a value.
+	v.VisitNil()
+	esp += 1
+
+	if esp != ebp+1 {
+		panic("broken invariant")
+	}
+}
+
 func fnEther(v *BytecodeVisitor, _ *Scope, esp int, call Node) {
 	args := assertNargsEq("ether", call, 1)
 
@@ -690,6 +729,26 @@ func fnGethash(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 
 	v.addOp(vm.SLOAD) // [VV]
 	esp += 0          //  --> esp=1
+}
+
+func fnHash(v *BytecodeVisitor, _ *Scope, _ int, call Node) {
+	args := assertNargsEq("hash", call, 1)
+
+	if !args[0].IsString() {
+		panic("TODO")
+	}
+
+	var (
+		h Hash = Keccak256Hash([]byte(args[0].ValueString))
+		b strings.Builder
+	)
+	for i := range len(h) {
+		b.WriteString(fmt.Sprintf("%02x", h[i]))
+	}
+	hex := b.String()
+
+	v.addOp(vm.PUSH32)
+	v.addHex(hex)
 }
 
 func fnIf(v *BytecodeVisitor, s *Scope, esp int, call Node) {
@@ -803,29 +862,81 @@ func fnPuthash(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 }
 
 func fnReturn(v *BytecodeVisitor, s *Scope, esp int, call Node) {
-	args := assertNargsEq("return", call, 1)
+	ebp := esp
 
-	v.pushU64(0x20)              // [20]
-	esp += 1                     //
-	v.pushU64(freeMemoryPointer) // [FP 20]
-	esp += 1                     //
-	v.addOp(vm.MLOAD)            // [FM 20]
-	esp += 0                     //
-	args[0].Accept(v, s, esp)    // [RV FM 20]
-	esp += 1                     //
-	v.addOp(vm.DUP2)             // [FM RV FM 20]
-	esp += 1                     //
-	v.addOp(vm.MSTORE)           // [FM 20]
-	esp -= 2                     //
-	v.addOp(vm.RETURN)           // []
-	esp -= 2                     //
+	args := assertNargsEq("return", call, 1)
+	arg := args[0]
+
+	if arg.Type == NodeString {
+		length := len(arg.ValueString)
+		hex := EncodeString(arg.ValueString)
+
+		// That's toooooooooooooooooooooo manual...
+		v.pushU64(0x60)              // [60]
+		esp += 1                     //
+		v.pushU64(freeMemoryPointer) // [FP 60]
+		esp += 1                     //
+		v.addOp(vm.MLOAD)            // [FM 60]
+		esp += 0                     //
+		v.pushU64(0x20)              // [20 FM 60]
+		esp += 1                     //
+		v.addOp(vm.DUP2)             // [FM 20 FM 60]
+		esp += 1                     //
+		v.addOp(vm.MSTORE)           // [FM 60], m[FM]=20
+		esp -= 2                     //
+		v.pushU64(uint64(length))    // [LN FM 60]
+		esp += 1                     //
+		v.addOp(vm.DUP2)             // [FM LN FM 60]
+		esp += 1                     //
+		v.pushU64(0x20)              // [20 FM LN FM 60]
+		esp += 1                     //
+		v.addOp(vm.ADD)              // [F2 LN FM 60]
+		esp -= 1                     //
+		v.addOp(vm.MSTORE)           // [FM 60], m[FM+20]=LN
+		esp -= 2                     //
+		v.addOp(vm.PUSH32)           //
+		v.addHex(hex)                // [ST FM 60]
+		esp += 1                     //
+		v.addOp(vm.DUP2)             // [FM ST FM 60]
+		esp += 1                     //
+		v.pushU64(0x40)              // [40 FM ST FM 60]
+		esp += 1                     //
+		v.addOp(vm.ADD)              // [F4 ST FM 60]
+		esp -= 1                     //
+		v.addOp(vm.MSTORE)           // [FM 60], m[FM+40]=ST
+		esp -= 2                     //
+		v.addOp(vm.RETURN)           // []
+		esp -= 2                     //
+	} else {
+		v.pushU64(0x20)              // [20]
+		esp += 1                     //
+		v.pushU64(freeMemoryPointer) // [FP 20]
+		esp += 1                     //
+		v.addOp(vm.MLOAD)            // [FM 20]
+		esp += 0                     //
+		args[0].Accept(v, s, esp)    // [RV FM 20]
+		esp += 1                     //
+		v.addOp(vm.DUP2)             // [FM RV FM 20]
+		esp += 1                     //
+		v.addOp(vm.MSTORE)           // [FM 20]
+		esp -= 2                     //
+		v.addOp(vm.RETURN)           // []
+		esp -= 2                     //
+	}
+
+	if esp != ebp {
+		panic("broken invariant")
+	}
 }
 
 func fnRevert(v *BytecodeVisitor, s *Scope, esp int, call Node) {
-	args := assertNargsEq("revert", call, 1)
+	ebp := esp
 
-	if args[0].Type == NodeString {
-		encoded := EncodeWithSignature("Error(string)", args[0].ValueString)
+	args := assertNargsEq("revert", call, 1)
+	arg := args[0]
+
+	if arg.Type == NodeString {
+		encoded := EncodeWithSignature("Error(string)", arg.ValueString)
 
 		// Load free memory pointer.
 		v.pushU64(freeMemoryPointer) // [FP]
@@ -872,7 +983,7 @@ func fnRevert(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 		esp += 1                     //
 		v.addOp(vm.MLOAD)            // [FM 20]
 		esp += 0                     //
-		args[0].Accept(v, s, esp)    // [RV FM 20]
+		arg.Accept(v, s, esp)        // [RV FM 20]
 		esp += 1                     //
 		v.addOp(vm.DUP2)             // [FM RV FM 20]
 		esp += 1                     //
@@ -880,6 +991,10 @@ func fnRevert(v *BytecodeVisitor, s *Scope, esp int, call Node) {
 		esp -= 2                     //
 		v.addOp(vm.REVERT)           // []
 		esp -= 2                     //
+	}
+
+	if esp != ebp {
+		panic("broken invariant")
 	}
 }
 
