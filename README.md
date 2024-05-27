@@ -56,17 +56,17 @@ For an example implementation of an ERC-20 token, please see [charm.mist](exampl
 
 # Standard library
 
-### `nil` (`false`) values:
+#### `nil` (`false`) values:
   - the number `0`
   - the symbol `nil`
   - any empty list, quoted or not
 
-### `t` (`true`) values:
+#### `t` (`true`) values:
   - any number other than `0`
   - the symbol `t`
   - any non-empty list, quoted or not
 
-### Functions mapped to native instructions
+#### Functions mapped to native instructions
   - `(stop)`
   - `(-)` e.g. `(- 20 5)`
   - `(/)` e.g. `(/ 10 2)`
@@ -104,14 +104,14 @@ For an example implementation of an ERC-20 token, please see [charm.mist](exampl
   - `(base-fee)`, current block's base fee
   - `(available-gas)`, amount of available gas (after paying for this instruction)
 
-### Variadic:
-  - `(+)`
+#### Variadic:
+  - `(+)`, e.g. `(+ 1 2 3 4 5)`
   - `(*)`
   - `(&)` and its alias `(logand)`
   - `(|)` and its alias `(logior)`
   - `(&)` and its alias `(logxor)`
 
-### Builtins:
+#### Builtins:
   - `(case)`, standard Lisp `(case)`, see `examples/case*.mist` for examples
   - `(defconst)`, give a name to a constant expression
   - `(defun)`, e.g. `(defun NAME ARGLIST BODY...)`, define NAME as function
@@ -127,7 +127,7 @@ For an example implementation of an ERC-20 token, please see [charm.mist](exampl
   - `(selector STRING)`
   - `(setq SYMBOL VALUE)` assigns `VALUE` to the *storage* variable named `SYMBOL`
 
-### Macros:
+#### Macros:
   - `(<=)`
   - `(>=)`
   - `(apply FUNCTION ARGUMENTS...)`
@@ -136,7 +136,7 @@ For an example implementation of an ERC-20 token, please see [charm.mist](exampl
   - `(unless COND BODY...)` if `COND` yields `nil`, do `BODY`, else return nil
   - `(when COND BODY...)` if `COND` yields `t`, do `BODY`, else return nil
 
-### Notes:
+#### Notes:
 
 These are the only functions do not result in an expression:
   - `(stop)`
