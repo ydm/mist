@@ -111,6 +111,7 @@
 
 (defun approve (spender value)
   (notPayable)
+  (_assertAddress spender)
   (_approve (caller) spender value t)
   t)
 
