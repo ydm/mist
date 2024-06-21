@@ -26,7 +26,6 @@
 ;; +-----------+
 
 (defconst max-uint256 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) ; 2^256-1
-(defconst address-mask                        0xffffffffffffffffffffffffffffffffffffffff) ; 2^160-1
 (defconst maxSupply 0x3dbb)
 
 ;; +---------+
