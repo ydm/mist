@@ -25,7 +25,7 @@
 ;; | Constants |
 ;; +-----------+
 
-(defconst max-uint256 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) ; 2^256-1
+(defconst maxUint256 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) ; 2^256-1
 (defconst maxSupply 0x3dbb)
 
 ;; +---------+
@@ -77,7 +77,7 @@
 
 (defun _spendAllowance (owner spender value)
   (let ((currentAllowance (allowance owner spender)))
-    (unless (= currentAllowance max-uint256)
+    (unless (= currentAllowance maxUint256)
       (if (< currentAllowance value)
           (revert "insufficient allowance")
         (_approve owner spender (- currentAllowance value) nil)))))
